@@ -6,11 +6,23 @@ import "./App.css";
 import "./VirtualFarmTwin.css"
 
 function VirtualFarmTwin() {
+  // Local storage keys for state persistence
+  const LS_KEYS = {
+    LOCATION: 'agriverse_location',
+    SOIL_TYPE: 'agriverse_soil',
+    RESPONSE: 'agriverse_response',
+    ML_PREDICTION: 'agriverse_ml_prediction'
+  };
+
   const [input, setInput] = useState("");
-  const [response, setResponse] = useState("");
+  const [response, setResponse] = useState(() => {
+    return localStorage.getItem(LS_KEYS.RESPONSE) || "";
+  });
   const [lat, setLat] = useState(null);
   const [lon, setLon] = useState(null);
-  const [soilType, setSoilType] = useState("");
+  const [soilType, setSoilType] = useState(() => {
+    return localStorage.getItem(LS_KEYS.SOIL_TYPE) || "";
+  });
   const [regionName, setRegionName] = useState("Detecting location...");
   const [climateDesc, setClimateDesc] = useState("Loading...");
   const [map, setMap] = useState(null);
@@ -28,32 +40,84 @@ function VirtualFarmTwin() {
   const mapRef = useRef(null);
   const mapContainerRef = useRef(null);
   const mapLayers = useRef({});
+  const [mlPrediction, setMlPrediction] = useState(() => {
+    return localStorage.getItem(LS_KEYS.ML_PREDICTION) || "";
+  });
+  // Temperature and humidity storage for ML API
+  const [temperature, setTemperature] = useState(null);
+  const [humidity, setHumidity] = useState(null);
+  const [precipMm, setPrecipMm] = useState(null);
+
+  // Save state to localStorage whenever it changes
+  useEffect(() => {
+    if (response) localStorage.setItem(LS_KEYS.RESPONSE, response);
+    if (soilType) localStorage.setItem(LS_KEYS.SOIL_TYPE, soilType);
+    if (mlPrediction) localStorage.setItem(LS_KEYS.ML_PREDICTION, mlPrediction);
+    
+    // Store location data
+    if (lat && lon) {
+      localStorage.setItem(LS_KEYS.LOCATION, JSON.stringify({
+        lat, lon, regionName, detailedLocation, 
+        climateDesc, soilMoisture, rainfall, elevation
+      }));
+    }
+  }, [response, soilType, mlPrediction, lat, lon, regionName, detailedLocation, 
+      climateDesc, soilMoisture, rainfall, elevation]);
+
+  // Load previous location data if available
+  useEffect(() => {
+    const savedLocation = localStorage.getItem(LS_KEYS.LOCATION);
+    if (savedLocation) {
+      try {
+        const parsed = JSON.parse(savedLocation);
+        setLat(parsed.lat);
+        setLon(parsed.lon);
+        setRegionName(parsed.regionName || "Unknown region");
+        setDetailedLocation(parsed.detailedLocation || "Unknown location");
+        setClimateDesc(parsed.climateDesc || "Unknown climate");
+        setSoilMoisture(parsed.soilMoisture || "Unknown");
+        setRainfall(parsed.rainfall || "Unknown");
+        setElevation(parsed.elevation || "Unknown");
+        setIsLoading(false);
+        console.log("Restored previous location:", parsed);
+      } catch (e) {
+        console.error("Error parsing saved location:", e);
+        getCurrentLocation();
+      }
+    } else {
+      getCurrentLocation();
+    }
+  }, []);
 
   // Fetch location and weather on load with high accuracy
-  useEffect(() => {
+  const getCurrentLocation = () => {
+    console.log("Getting current location with high accuracy...");
+    setIsLoading(true);
+    setDefaultCropsLoaded(false); // Reset crops flag
+    
     const geoOptions = {
       enableHighAccuracy: true,
       timeout: 10000,
       maximumAge: 0
     };
-
+    
     navigator.geolocation.getCurrentPosition(
-      async (position) => {
+      (position) => {
+        console.log("Received current position:", position.coords);
         const latitude = position.coords.latitude;
         const longitude = position.coords.longitude;
-        console.log("Obtained precise coordinates:", latitude, longitude);
         loadLocationData(latitude, longitude);
-      }, 
+      },
       (error) => {
         console.error("Geolocation error:", error);
-        setRegionName("Location access denied or unavailable");
         setIsLoading(false);
+        alert("Unable to get your current location. Please check your location permissions.");
         // Default coordinates if geolocation fails
         loadLocationData(20.5937, 78.9629); // Default to center of India
       },
       geoOptions
     );
-  }, []);
+  };
 
   // Make sure the map is properly initialized after the component mounts
   useEffect(() => {
@@ -74,6 +138,33 @@ function VirtualFarmTwin() {
       setDefaultCropsLoaded(true);
     }
   }, [isLoading, soilType, regionName, defaultCropsLoaded]);
+
+  // API call to get ML prediction from Flask
+  const fetchMlPrediction = async (latitude, longitude, temp, hum, rain) => {
+    try {
+      // Use either direct weather values or lat/lon based on what's available
+      const payload = temp && hum && rain 
+        ? { temperature: temp, humidity: hum, rainfall: rain } 
+        : { lat: latitude, lon: longitude };
+      
+      console.log("Fetching ML prediction with payload:", payload);
+      
+      // Call Flask API
+      const apiUrl = "http://127.0.0.1:5000/predict"; // Change to your actual API URL in production
+      const mlResponse = await axios.post(apiUrl, payload);
+      
+      if (mlResponse.data && mlResponse.data.recommended_crop) {
+        const prediction = mlResponse.data.recommended_crop;
+        console.log("ML prediction received:", prediction);
+        setMlPrediction(prediction);
+        return prediction;
+      }
+    } catch (error) {
+      console.error("Error fetching ML prediction:", error);
+      setMlPrediction("Prediction failed - API error");
+      return null;
+    }
+  };
 
   const loadLocationData = async (latitude, longitude) => {
     console.log("Loading data for coordinates:", latitude, longitude);
@@ -97,25 +188,46 @@ function VirtualFarmTwin() {
       
       setRegionName(`${locality}, ${district}${district ? ', ' : ''}${state}`);
       setDetailedLocation(`${locality}, ${district}${district ? ', ' : ''}${state}${state ? ', ' : ''}${country}`);
-
+      
+      let temp = 0;
+      let humidity = 0;
+      let precipitation = 0;
+      
       // Weather Info using WeatherAPI
       try {
         const weatherRes = await axios.get(
           `https://api.weatherapi.com/v1/current.json?key=${import.meta.env.VITE_WEATHER_API_KEY}&q=${latitude},${longitude}`
         );
-        const temp = weatherRes.data.current.temp_c;
+        temp = weatherRes.data.current.temp_c;
         const weather = weatherRes.data.current.condition.text;
-        const humidity = weatherRes.data.current.humidity;
-        const precipitation = weatherRes.data.current.precip_mm;
+        humidity = weatherRes.data.current.humidity;
+        precipitation = weatherRes.data.current.precip_mm;
+        
+        // Store values for ML API
+        setTemperature(temp);
+        setHumidity(humidity);
+        setPrecipMm(precipitation);
+        
         setClimateDesc(`${weather}, ${temp}°C, Humidity: ${humidity}%, Precipitation: ${precipitation}mm`);
         
         // Soil moisture calculation - more refined
         const soilMoistureEstimate = calculateSoilMoisture(humidity, precipitation);
         setSoilMoisture(soilMoistureEstimate);
+        
+        // Get rainfall estimate
+        const rainfallEstimate = await estimateRainfall(latitude, longitude);
+        setRainfall(rainfallEstimate);
+        
+        // Fetch ML prediction based on weather data
+        fetchMlPrediction(latitude, longitude, temp, humidity, precipitation);
+        
       } catch (weatherError) {
         console.error("Weather API error:", weatherError);
         setClimateDesc("Weather data unavailable");
         setSoilMoisture("Unknown");
+        
+        // Try with just coordinates for ML prediction
+        fetchMlPrediction(latitude, longitude);
       }
 
       // Elevation data - Handle CORS error gracefully
@@ -156,11 +268,7 @@ function VirtualFarmTwin() {
         // Fallback: Use an estimation based on location
         setElevation("Estimated 300m");
       }
-      
-      // Retrieve historical rainfall data or estimate based on location
-      const rainfallData = await estimateRainfall(latitude, longitude);
-      setRainfall(rainfallData);
-      
+
       // Detect soil type based on geography
       const detectedSoilType = await detectSoilType(latitude, longitude, state);
       if (detectedSoilType && !soilType) {
@@ -425,38 +533,16 @@ function VirtualFarmTwin() {
     }
   };
 
-  // Get current location with high accuracy
-  const getCurrentLocation = () => {
-    console.log("Getting current location with high accuracy...");
-    setIsLoading(true);
-    setDefaultCropsLoaded(false); // Reset crops flag
-    
-    const geoOptions = {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 0
-    };
-    
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        console.log("Received current position:", position.coords);
-        const latitude = position.coords.latitude;
-        const longitude = position.coords.longitude;
-        loadLocationData(latitude, longitude);
-      },
-      (error) => {
-        console.error("Geolocation error:", error);
-        setIsLoading(false);
-        alert("Unable to get your current location. Please check your location permissions.");
-      },
-      geoOptions
-    );
-  };
-
   // Function to get default crop suggestions when location is loaded
   const getDefaultCropSuggestions = async () => {
     console.log("Getting default crop suggestions");
     setResponse("⏳ Analyzing your land and generating recommended crops...");
+
+    // Get ML prediction first (if available)
+    let mlResult = mlPrediction;
+    if (!mlResult && temperature && humidity && precipMm) {
+      mlResult = await fetchMlPrediction(lat, lon, temperature, humidity, precipMm);
+    }
 
     const defaultPrompt = `
 Act as AgriVerse GPT, a farming assistant.
@@ -470,15 +556,16 @@ Conditions:
 - Elevation: ${elevation}
 - Soil Moisture: ${soilMoisture}
 - Typical Rainfall: ${rainfall}
+- ML Prediction: The ML algorithm specifically recommends: ${mlResult || "Unknown"}
 
 ✅ Reply with:
-1. 🌾 3–4 best crops for this exact location
+1. 🌾 3–4 best crops for this exact location details. Include the ML predicted crop among your recommendations if it makes sense for this region.
 2. 📝 One-line reason per crop
-3. 🚫 No extra tips or paragraphs
+3. Include ML data analysis in your response with credibility score
 4. ✂️ Use ONLY bullet format. Do NOT write long text.
 5. 💬 Add emojis to keep tone friendly.
 
-Start with a very brief "Welcome to AgriVerse!" header. Display recommended crops for my detected location.
+Start with a very brief "Welcome to AgriVerse!" header. Display recommended crops for my detected location. Mention AI and ML fusion technology used for predictions.
 `;
 
     try {
@@ -527,6 +614,12 @@ Start with a very brief "Welcome to AgriVerse!" header. Display recommended crop
       promptType = "crops";
     }
 
+    // Ensure we have ML prediction if possible
+    let mlResult = mlPrediction;
+    if (!mlResult && temperature && humidity && precipMm) {
+      mlResult = await fetchMlPrediction(lat, lon, temperature, humidity, precipMm);
+    }
+
     // Structured prompt for crop recommendations
     const cropPrompt = `
 Act as AgriVerse GPT, a farming assistant.
@@ -540,11 +633,12 @@ Conditions:
 - Elevation: ${elevation}
 - Soil Moisture: ${soilMoisture}
 - Typical Rainfall: ${rainfall}
+- ML Prediction: The ML algorithm specifically recommends: ${mlResult || "Unknown"}
 
 ✅ Reply with:
-1. 🌾 3–4 best crops
+1. 🌾 3–4 best crops (include ML recommended crop if relevant)
 2. 📝 One-line reason per crop
-3. 🚫 No extra tips or paragraphs
+3. Please include a brief ML analysis section at the end with confidence percentage
 4. ✂️ Use ONLY bullet format. Do NOT write long text.
 5. 💬 Add emojis to keep tone friendly.
 
@@ -566,6 +660,7 @@ Conditions for context:
 - Region: ${regionName}
 - Soil Moisture: ${soilMoisture}
 - Typical Rainfall: ${rainfall}
+- ML Prediction: The ML algorithm recommends: ${mlResult || "Unknown"}
 
 ✅ Response guidelines:
 1. 🚀 Give a direct, concise answer
@@ -573,6 +668,7 @@ Conditions for context:
 3. 🧪 Be specific to the region and conditions
 4. 📱 Format with emojis for readability
 5. 🎯 Be practical, actionable and to-the-point
+6. 🔬 Include a brief ML analysis if relevant to the query
 
 QUERY: ${input}
 `;
@@ -821,6 +917,13 @@ QUERY: ${input}
               </div>
             </div>
           </div>
+          <div className="detail-item">
+  <span className="detail-icon">🧪</span>
+  <div>
+    <h4>ML Suggested Crop</h4>
+    <p>{mlPrediction || "Loading..."}</p>
+  </div>
+</div>
 
           <div className="response-card">
             <h3>📋 AgriVerse Recommendations</h3>

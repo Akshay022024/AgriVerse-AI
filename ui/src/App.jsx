@@ -73,11 +73,36 @@ const App = () => {
   const renderContent = () => {
     switch(activeTab) {
       case 'virtualFarmTwin':
-        return <VirtualFarmTwin />;
+        return (
+          <div className="full-width-content">
+            <VirtualFarmTwin />
+          </div>
+        );
+      case 'copilot':
+        return (
+          <div className="full-width-content">
+            <h2 className="section-title">Copilot</h2>
+            <p>This is the Copilot page content. It uses the full width of the page.</p>
+          </div>
+        );
+      case 'dashboard':
+        return (
+          <div className="full-width-content">
+            <h2 className="section-title">Dashboard</h2>
+            <p>This is the Dashboard page content. It uses the full width of the page.</p>
+          </div>
+        );
+      case 'finance':
+        return (
+          <div className="full-width-content">
+            <h2 className="section-title">Finance</h2>
+            <p>This is the Finance page content. It uses the full width of the page.</p>
+          </div>
+        );
       case 'home':
       default:
         return (
-          <>
+          <div className="home-layout">
             {/* Main Content Area */}
             <div className="main-content-area">
               {/* Featured Content Slider */}
@@ -109,7 +134,33 @@ const App = () => {
                 </div>
               </div>
             </div>
-          </>
+            
+            {/* Right Sidebar - Only visible on home page */}
+            <div className="right-sidebar">
+              <div className="right-container">
+                <h2 className="container-title">Additional Tools</h2>
+                <div className="sidebar-content">
+                  <p>This container has the same width as the navigation bar. Add your custom content here.</p>
+                  <div className="placeholder-box"></div>
+                  <div className="placeholder-box"></div>
+                  <div className="placeholder-item">
+                    <div className="placeholder-icon"></div>
+                    <div className="placeholder-text">
+                      <div className="text-line"></div>
+                      <div className="text-line short"></div>
+                    </div>
+                  </div>
+                  <div className="placeholder-item">
+                    <div className="placeholder-icon"></div>
+                    <div className="placeholder-text">
+                      <div className="text-line"></div>
+                      <div className="text-line short"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         );
     }
   };
@@ -199,32 +250,6 @@ const App = () => {
         
         {/* Render content based on active tab */}
         {renderContent()}
-      </div>
-      
-      {/* Right Sidebar Container - Same size as nav bar */}
-      <div className="right-sidebar">
-        <div className="right-container">
-          <h2 className="container-title">Additional Tools</h2>
-          <div className="sidebar-content">
-            <p>This container has the same width as the navigation bar. Add your custom content here.</p>
-            <div className="placeholder-box"></div>
-            <div className="placeholder-box"></div>
-            <div className="placeholder-item">
-              <div className="placeholder-icon"></div>
-              <div className="placeholder-text">
-                <div className="text-line"></div>
-                <div className="text-line short"></div>
-              </div>
-            </div>
-            <div className="placeholder-item">
-              <div className="placeholder-icon"></div>
-              <div className="placeholder-text">
-                <div className="text-line"></div>
-                <div className="text-line short"></div>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
       
       {/* Chatbot and Voice Assistant Button */}
