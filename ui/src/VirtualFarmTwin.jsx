@@ -161,8 +161,9 @@ function VirtualFarmTwin() {
       }
     } catch (error) {
       console.error("Error fetching ML prediction:", error);
-      setMlPrediction("Prediction failed - API error");
-      return null;
+  console.error("Error details:", error.response?.data || error.message);
+  setMlPrediction("Prediction failed - API error");
+  return null;
     }
   };
 
