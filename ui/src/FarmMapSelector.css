@@ -1,0 +1,223 @@
+/* FarmMapSelector.css */
+
+.farm-map-selector {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background-color: #fff;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+/* Map Container */
+.map-container {
+  height: 400px;
+  width: 100%;
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid #e2e8f0;
+  margin: 12px 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* Controls */
+.map-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.map-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid #e2e8f0;
+  background-color: white;
+  color: #4b5563;
+  min-width: 120px;
+}
+
+.map-button:hover:not(:disabled) {
+  background-color: #f9fafb;
+}
+
+.map-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.map-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.button-icon {
+  margin-right: 6px;
+}
+
+.get-location-button {
+  background-color: #3b82f6;
+  color: white;
+  border-color: #2563eb;
+}
+
+.get-location-button:hover:not(:disabled) {
+  background-color: #2563eb;
+}
+
+.draw-button {
+  background-color: #10b981;
+  color: white;
+  border-color: #059669;
+}
+
+.draw-button:hover:not(:disabled) {
+  background-color: #059669;
+}
+
+.draw-button.active {
+  background-color: #f59e0b;
+  border-color: #d97706;
+}
+
+.clear-button, .clear-location-button {
+  background-color: #f3f4f6;
+  color: #4b5563;
+}
+
+.clear-button:hover:not(:disabled), .clear-location-button:hover:not(:disabled) {
+  background-color: #e5e7eb;
+  color: #111827;
+}
+
+/* Info Display */
+.map-info-display {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.location-info, .boundary-info {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  background-color: #f3f4f6;
+  border-radius: 4px;
+  color: #4b5563;
+}
+
+.info-check-icon {
+  color: #10b981;
+  margin-right: 6px;
+}
+
+/* Error Display */
+.map-error {
+  margin: 8px 0;
+  padding: 8px 12px;
+  background-color: #fee2e2;
+  border-left: 3px solid #ef4444;
+  color: #b91c1c;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+/* Loading State */
+.map-loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(241, 245, 249, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 500;
+  color: #4b5563;
+}
+
+/* Instructions */
+.map-instructions {
+  margin-top: 12px;
+  font-size: 14px;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .map-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .map-button {
+    width: 100%;
+  }
+  
+  .map-container {
+    height: 300px;
+  }
+}
+
+/* Leaflet Custom Styles - Ensure these don't conflict with Leaflet's default styles */
+.leaflet-draw-toolbar a {
+  background-color: white;
+}
+
+.leaflet-draw-actions a {
+  background-color: white;
+  color: #4b5563;
+}
+
+.leaflet-container {
+  font: inherit;
+}
+
+/* Popup style enhancements */
+.leaflet-popup-content {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 6px;
+}
+
+/* Make the drawing layer slightly transparent so the map underneath is visible */
+.leaflet-overlay-pane path.leaflet-interactive {
+  stroke-opacity: 0.8;
+  fill-opacity: 0.25;
+}
+
+/* Style for the popup content */
+.map-popup-content {
+  text-align: center;
+  font-weight: 500;
+}
+
+/* Style for the edit handle points */
+.leaflet-edit-resize,
+.leaflet-edit-marker-selected,
+.leaflet-edit-move {
+  border: 2px solid rgba(59, 130, 246, 0.9) !important;
+}
+
+/* Style for vertex handles when editing polygons */
+.leaflet-vertex-icon {
+  background-color: #3b82f6;
+  border: 2px solid white;
+  border-radius: 50%;
+}

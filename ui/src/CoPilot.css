@@ -1,0 +1,543 @@
+/* CoPilot.css - Styling for the AgriverseAI CoPilot component */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --primary-color: #2e7d32;
+  --primary-light: #60ad5e;
+  --primary-dark: #005005;
+  --secondary-color: #ffd54f;
+  --text-color: #333333;
+  --text-secondary: #666666;
+  --background-color: #ffffff;
+  --card-bg: #f9f9f9;
+  --border-color: #e0e0e0;
+  --shadow-color: rgba(0, 0, 0, 0.1);
+  --message-user-bg: #e8f5e9;
+  --message-ai-bg: #f1f8e9;
+  --transition-speed: 0.3s;
+  --radius: 12px;
+}
+
+.dark-mode {
+  --primary-color: #4caf50;
+  --primary-light: #80e27e;
+  --primary-dark: #087f23;
+  --secondary-color: #ffee58;
+  --text-color: #f5f5f5;
+  --text-secondary: #b0b0b0;
+  --background-color: #121212;
+  --card-bg: #1e1e1e;
+  --border-color: #333333;
+  --shadow-color: rgba(0, 0, 0, 0.3);
+  --message-user-bg: #1b5e20;
+  --message-ai-bg: #2e7d32;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  transition: background-color var(--transition-speed), color var(--transition-speed);
+}
+
+/* Main Container */
+.copilot-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  max-width: 100%;
+  overflow: hidden;
+  position: relative;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  transition: all var(--transition-speed);
+}
+
+/* Header */
+.copilot-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background-color: var(--primary-color);
+  color: white;
+  box-shadow: 0 2px 5px var(--shadow-color);
+  z-index: 10;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-left h1 {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Buttons */
+.icon-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background-color: transparent;
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.2s;
+}
+
+.icon-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.icon-button:active {
+  transform: scale(0.95);
+}
+
+.icon-button.active {
+  background-color: var(--primary-light);
+}
+
+/* Language Menu */
+.language-menu {
+  position: absolute;
+  top: 70px;
+  right: 20px;
+  background-color: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: 0 5px 15px var(--shadow-color);
+  overflow: hidden;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  min-width: 150px;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.language-menu button {
+  padding: 12px 16px;
+  background-color: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  color: var(--text-color);
+}
+
+.language-menu button:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.language-menu button.active {
+  background-color: var(--primary-light);
+  color: white;
+}
+
+.dark-mode .language-menu button:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Sidebar */
+.copilot-sidebar {
+  position: fixed;
+  top: 0;
+  left: -300px;
+  width: 300px;
+  height: 100%;
+  background-color: var(--card-bg);
+  box-shadow: 2px 0 10px var(--shadow-color);
+  z-index: 1000;
+  transition: left 0.3s ease;
+  overflow-y: auto;
+}
+
+.copilot-sidebar.open {
+  left: 0;
+}
+
+.sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.sidebar-content {
+  padding: 20px;
+}
+
+.sidebar-section {
+  margin-bottom: 24px;
+}
+
+.sidebar-section h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--primary-color);
+}
+
+.setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.toggle-button {
+  background-color: var(--border-color);
+  color: var(--text-secondary);
+  border: none;
+  border-radius: 12px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toggle-button.active {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.setting-languages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.lang-button {
+  background-color: var(--border-color);
+  color: var(--text-secondary);
+  border: none;
+  border-radius: 12px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.9rem;
+}
+
+.lang-button.active {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+/* Messages Area */
+.copilot-messages {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.welcome-message {
+  max-width: 500px;
+  background-color: var(--card-bg);
+  padding: 24px;
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px var(--shadow-color);
+  animation: fadeIn 0.5s ease-out;
+}
+
+.welcome-message h2 {
+  color: var(--primary-color);
+  margin-bottom: 12px;
+}
+
+.message {
+  display: flex;
+  flex-direction: column;
+  max-width: 80%;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.message.user {
+  align-self: flex-end;
+}
+
+.message.ai {
+  align-self: flex-start;
+}
+
+.message-bubble {
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  box-shadow: 0 2px 4px var(--shadow-color);
+  line-height: 1.5;
+}
+
+.message.user .message-bubble {
+  background-color: var(--message-user-bg);
+  border-bottom-right-radius: 4px;
+}
+
+.message.ai .message-bubble {
+  background-color: var(--message-ai-bg);
+  border-bottom-left-radius: 4px;
+}
+
+.message-time {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  padding: 0 4px;
+}
+
+/* Typing indicator */
+.message.typing .message-bubble {
+  padding: 16px;
+}
+
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.typing-indicator span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--text-secondary);
+  opacity: 0.7;
+  animation: typingAnimation 1.5s infinite ease-in-out;
+}
+
+.typing-indicator span:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.typing-indicator span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-indicator span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typingAnimation {
+  0%, 60%, 100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-6px);
+  }
+}
+
+/* Input Area */
+.copilot-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 20px;
+  background-color: var(--card-bg);
+  border-top: 1px solid var(--border-color);
+  position: relative;
+  z-index: 5;
+}
+
+.copilot-input input {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: 24px;
+  border: 1px solid var(--border-color);
+  background-color: var(--background-color);
+  color: var(--text-color);
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.copilot-input input:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(46, 125, 50, 0.2);
+}
+
+.copilot-input input:disabled {
+  background-color: var(--card-bg);
+  cursor: not-allowed;
+}
+
+.mic-button {
+  color: var(--text-color);
+  background-color: var(--background-color);
+  border: 1px solid var(--border-color);
+}
+
+.mic-button.active {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.send-button {
+  color: white;
+  background-color: var(--primary-color);
+}
+
+.send-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Voice Feedback */
+.voice-feedback {
+  position: absolute;
+  bottom: 90px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 24px;
+  background-color: var(--primary-color);
+  color: white;
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px var(--shadow-color);
+  animation: fadeIn 0.3s ease-out;
+  z-index: 50;
+  max-width: 80%;
+}
+
+.voice-waves {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 40px;
+  margin-bottom: 8px;
+}
+
+.voice-waves span {
+  display: block;
+  width: 5px;
+  height: 20px;
+  margin: 0 2px;
+  background-color: white;
+  border-radius: 3px;
+  animation: soundWave 1.2s infinite ease-in-out;
+}
+
+.voice-waves span:nth-child(1) { animation-delay: 0s; }
+.voice-waves span:nth-child(2) { animation-delay: 0.2s; }
+.voice-waves span:nth-child(3) { animation-delay: 0.4s; }
+.voice-waves span:nth-child(4) { animation-delay: 0.6s; }
+.voice-waves span:nth-child(5) { animation-delay: 0.8s; }
+
+@keyframes soundWave {
+  0%, 100% {
+    height: 5px;
+  }
+  50% {
+    height: 30px;
+  }
+}
+
+.transcript {
+  text-align: center;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* Loading screen */
+.copilot-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background-color: var(--background-color);
+  color: var(--primary-color);
+}
+
+.loading-icon {
+  font-size: 48px;
+  color: var(--primary-color);
+  margin-bottom: 20px;
+}
+
+.spin {
+  animation: spin 2s infinite linear;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Media Queries */
+@media (max-width: 768px) {
+  .message {
+    max-width: 90%;
+  }
+  
+  .copilot-sidebar {
+    width: 100%;
+    left: -100%;
+  }
+  
+  .voice-feedback {
+    width: 90%;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-left h1 {
+    font-size: 1.1rem;
+  }
+  
+  .copilot-input input {
+    font-size: 0.9rem;
+  }
+  
+  .icon-button {
+    width: 36px;
+    height: 36px;
+  }
+}

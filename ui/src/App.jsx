@@ -2,10 +2,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Sun, Cloud, Leaf, BarChart2, Droplet, CreditCard, Calendar, Users, Settings, Home, Search, User, Mic, Bot, MapPin, Clock, CloudRain, Wind, Thermometer, CheckCircle, AlertTriangle, Info, BrainCircuit, Loader2 } from 'lucide-react';
 import './App.css';
-import VirtualFarmTwin from './VirtualFarmTwin'; // Assuming this component exists
+import VirtualFarmTwin from './VirtualFarmTwin';
 import UserOnboarding from './UserOnboarding'; // Assuming this component exists
+import CoPilot from './CoPilot'; // <-- Import the CoPilot component (Corrected Casing)
 import { signInUserAnonymously, onAuthStateChange, saveUserData, getUserData, updateUserProfile } from './firebase'; // Assuming firebase setup exists
 import './UserOnboarding.css'; // Ensure this CSS exists and is styled
+
 
 // --- Helper functions ---
 
@@ -55,7 +57,7 @@ const getIconComponent = (iconName, size = 24) => {
       case 'loader': return <Loader2 {...props} className="animate-spin" />;
       case 'map-pin': return <MapPin {...props} />;
       case 'home': return <Home {...props} />;
-      case 'bot': return <Bot {...props} />;
+      case 'bot': return <Bot {...props} />; // Assuming 'bot' icon for CoPilot
       case 'bar-chart-2': return <BarChart2 {...props} />;
       case 'credit-card': return <CreditCard {...props} />;
       case 'settings': return <Settings {...props} />;
@@ -124,7 +126,6 @@ const App = () => {
       const data = await response.json();
 
       // --- Store Location Name from API Response ---
-      // This is preferred for display as it's confirmed by the API
       const locationName = data.location ? `${data.location.name}, ${data.location.region}` : (typeof locationInput === 'string' ? locationInput : 'Location');
       setWeatherLocationName(locationName); // Use location name from API
 
@@ -136,7 +137,7 @@ const App = () => {
            windSpeed: Math.round(data.current.wind_kph),
            condition: data.current.condition.text,
            precip_mm: data.current.precip_mm,
-           icon: mapApiConditionToIcon(data.current.condition.text), // Map icon here
+           icon: mapApiConditionToIcon(data.current.condition.text),
            feelslike_c: Math.round(data.current.feelslike_c),
            uv: data.current.uv,
          },
@@ -151,20 +152,20 @@ const App = () => {
          }))
        };
       setWeatherData(formattedData);
-      return formattedData; // Return data for immediate use
+      return formattedData;
 
     } catch (error) {
       console.error("Failed to fetch or process weather data:", error);
-      setWeatherData(null); // Clear on error
-      setWeatherLocationName(''); // Clear name on error
-      return null; // Return null on error
+      setWeatherData(null);
+      setWeatherLocationName('');
+      return null;
     }
-  }, []); // No dependencies needed here
+  }, []);
 
   // --- Generate Dynamic Tasks from AI Insights ---
   const generateDynamicTasks = (insights) => {
       const generatedTasks = [];
-      let taskIdCounter = 1; // Start counter, ensure unique IDs later if needed
+      let taskIdCounter = 1;
 
       if (!insights || insights.length === 0) return [];
 
@@ -173,7 +174,6 @@ const App = () => {
           let taskTitle = null;
           let priority = 'medium';
 
-          // Simple keyword matching for task generation
           if (lowerInsight.includes('irrigate') || lowerInsight.includes('water need') || lowerInsight.includes('humidity') || lowerInsight.includes('moisture')) {
               taskTitle = 'Check/adjust irrigation system/schedule'; priority = 'high';
           } else if (lowerInsight.includes('pest') || lowerInsight.includes('disease') || lowerInsight.includes('scout')) {
@@ -189,12 +189,11 @@ const App = () => {
           }
 
           if (taskTitle) {
-               // Basic check to avoid adding identical tasks immediately
               if (!generatedTasks.some(t => t.title === taskTitle)) {
                   generatedTasks.push({
-                      id: `ai-${taskIdCounter++}`, // Simple unique ID for this generation batch
+                      id: `ai-${taskIdCounter++}`,
                       title: taskTitle,
-                      dueDate: 'Soon', // Could be refined based on insight urgency
+                      dueDate: 'Soon',
                       priority: priority,
                       completed: false
                   });
@@ -207,29 +206,26 @@ const App = () => {
   // --- Fetch AI Insights using OpenRouter ---
   const fetchAIInsights = useCallback(async (currentUserData, currentWeatherData) => {
     const openRouterApiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
-    // <<< IMPORTANT: Set your site URL or app name here for OpenRouter referrer policy >>>
-    const siteUrl = 'YOUR_SITE_URL_OR_APP_NAME';
+    const siteUrl = 'AgriVerse'; // Replace with your actual site URL or app name
 
     if (!openRouterApiKey) {
-        console.error("OpenRouter API Key not found. Set VITE_OPENROUTER_API_KEY in your .env file.");
+        console.error("OpenRouter API Key not found.");
         setErrorInsights("AI Service Unavailable (Missing Key)");
         setAiInsights([]);
-        setTasks(prev => prev.filter(t => !t.id.startsWith('ai-'))); // Clear AI-generated tasks
+        setTasks(prev => prev.filter(t => !t.id.startsWith('ai-')));
         return;
     }
-    if (!currentUserData || !currentWeatherData) return; // Need data
+    if (!currentUserData || !currentWeatherData) return;
 
     setLoadingInsights(true); setErrorInsights(null); setAiInsights([]);
 
-    // Use location name from weather API if available, otherwise fallback
     const farmLocation = weatherLocationName || currentUserData?.manualLocation?.trim() || 'Specified Location';
     const farmArea = currentUserData.farmArea && currentUserData.areaUnit ? `${currentUserData.farmArea} ${currentUserData.areaUnit}` : 'Not Specified';
     const soil = currentUserData.soilTexture || 'Not Specified';
     const crops = currentUserData.cropTypes?.join(', ') || 'Not Specified';
 
-    // Construct the prompt for the AI model
     const prompt = `
-Act as an expert agricultural advisor for a farmer. Based ONLY on the following farm details and weather information, provide 3-4 brief, actionable, and concise insights relevant for the next 3 days for the specified crops. Focus on potential issues, recommendations (like irrigation, planting timing, pest scouting needs based on weather), and weather impacts. Start each insight on a new line prefixed with '- '. Be direct and practical.
+Act as an expert agricultural advisor. Based ONLY on the following farm details and weather, provide 3-4 brief, actionable insights for the next 3 days for the specified crops. Focus on potential issues, recommendations (irrigation, planting, pest scouting), and weather impacts. Start each insight on a new line prefixed with '- '. Be direct.
 
 Farm Details:
 - Location: ${farmLocation}
@@ -242,46 +238,42 @@ Current Weather:
 - Condition: ${currentWeatherData.current.condition}
 - Humidity: ${currentWeatherData.current.humidity}%
 - Wind: ${currentWeatherData.current.windSpeed} km/h
-- Precipitation (Recent): ${currentWeatherData.current.precip_mm} mm
-- UV Index: ${currentWeatherData.current.uv}
+- Precip (Recent): ${currentWeatherData.current.precip_mm} mm
+- UV: ${currentWeatherData.current.uv}
 
 Forecast (Next 3 Days):
-- ${currentWeatherData.forecast[0].day}: High ${currentWeatherData.forecast[0].high}°C, Low ${currentWeatherData.forecast[0].low}°C, ${currentWeatherData.forecast[0].condition}, ${currentWeatherData.forecast[0].chance_of_rain}% chance of rain (${currentWeatherData.forecast[0].precip_mm}mm expected).
-- ${currentWeatherData.forecast[1].day}: High ${currentWeatherData.forecast[1].high}°C, Low ${currentWeatherData.forecast[1].low}°C, ${currentWeatherData.forecast[1].condition}, ${currentWeatherData.forecast[1].chance_of_rain}% chance of rain (${currentWeatherData.forecast[1].precip_mm}mm expected).
-- ${currentWeatherData.forecast[2].day}: High ${currentWeatherData.forecast[2].high}°C, Low ${currentWeatherData.forecast[2].low}°C, ${currentWeatherData.forecast[2].condition}, ${currentWeatherData.forecast[2].chance_of_rain}% chance of rain (${currentWeatherData.forecast[2].precip_mm}mm expected).
+- ${currentWeatherData.forecast[0].day}: High ${currentWeatherData.forecast[0].high}°C, Low ${currentWeatherData.forecast[0].low}°C, ${currentWeatherData.forecast[0].condition}, ${currentWeatherData.forecast[0].chance_of_rain}% rain (${currentWeatherData.forecast[0].precip_mm}mm).
+- ${currentWeatherData.forecast[1].day}: High ${currentWeatherData.forecast[1].high}°C, Low ${currentWeatherData.forecast[1].low}°C, ${currentWeatherData.forecast[1].condition}, ${currentWeatherData.forecast[1].chance_of_rain}% rain (${currentWeatherData.forecast[1].precip_mm}mm).
+- ${currentWeatherData.forecast[2].day}: High ${currentWeatherData.forecast[2].high}°C, Low ${currentWeatherData.forecast[2].low}°C, ${currentWeatherData.forecast[2].condition}, ${currentWeatherData.forecast[2].chance_of_rain}% rain (${currentWeatherData.forecast[2].precip_mm}mm).
 
 Actionable Insights:
     `;
 
     try {
-        // Make the API call to OpenRouter
         const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
             headers: {
                 "Authorization": `Bearer ${openRouterApiKey}`,
-                "HTTP-Referer": siteUrl, // Required by OpenRouter
-                "X-Title": "AgriVerse AI", // Optional: Identify your app
+                "HTTP-Referer": siteUrl,
+                "X-Title": "AgriVerse AI",
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                model: "mistralai/mixtral-8x7b-instruct", // Specify the Mixtral model on OpenRouter
+                model: "mistralai/mixtral-8x7b-instruct",
                 messages: [{"role": "user", "content": prompt}],
-                temperature: 0.7, // Adjust creativity/randomness
-                max_tokens: 200, // Limit response length
+                temperature: 0.7,
+                max_tokens: 200,
             })
         });
 
         if (!response.ok) {
-            // Handle API errors
             const errorBody = await response.json();
             throw new Error(`OpenRouter API Error: ${response.status} ${errorBody?.error?.message || 'Unknown'}`);
         }
         const data = await response.json();
 
-        // Process the successful response
         if (data.choices?.[0]?.message?.content) {
             const insightsText = data.choices[0].message.content;
-            // Parse insights (assuming they start with '- ')
             const parsedInsights = insightsText.split('\n')
                                                .map(line => line.trim())
                                                .filter(line => line.startsWith('- '))
@@ -289,320 +281,228 @@ Actionable Insights:
 
             if (parsedInsights.length > 0) {
                  setAiInsights(parsedInsights);
-                 // Generate tasks based on the new insights
                  const newTasks = generateDynamicTasks(parsedInsights);
                  setTasks(prevTasks => [
-                     // Keep existing tasks that were NOT generated by AI
                      ...prevTasks.filter(t => !t.id.startsWith('ai-')),
-                     // Add the newly generated AI tasks
                      ...newTasks
                  ]);
             } else {
-                // Handle cases where the AI response might be valid but doesn't contain insights
                 setAiInsights(["No specific insights generated."]);
-                 // Clear any previously generated AI tasks
                  setTasks(prevTasks => prevTasks.filter(t => !t.id.startsWith('ai-')));
             }
-
         } else {
-            // Handle cases where the response structure is unexpected
             setAiInsights(["AI could not generate insights."]);
-            // Clear any previously generated AI tasks
             setTasks(prevTasks => prevTasks.filter(t => !t.id.startsWith('ai-')));
         }
     } catch (error) {
-        // Catch fetch errors or errors thrown from response handling
         console.error("Failed to fetch AI insights:", error);
         setErrorInsights(`AI Error: ${error.message}`);
         setAiInsights([]);
-        // Clear any previously generated AI tasks
         setTasks(prevTasks => prevTasks.filter(t => !t.id.startsWith('ai-')));
     } finally {
-        // Ensure loading indicator is turned off
         setLoadingInsights(false);
     }
-  }, [weatherLocationName]); // Re-run this function if weatherLocationName changes
+  }, [weatherLocationName]);
 
   // --- Generate Dynamic Alerts based on Weather and AI Insights ---
   const generateDynamicAlerts = useCallback((currentWeatherData, currentAiInsights) => {
       const alerts = [];
-      let alertIdCounter = 1; // Simple counter for unique keys within this generation
+      let alertIdCounter = 1;
 
       // Weather-based Alerts
       if (currentWeatherData?.forecast) {
           currentWeatherData.forecast.forEach((dayForecast, index) => {
-              // Alert for high chance of rain
               if (dayForecast.chance_of_rain > 60) {
-                  alerts.push({ id: `a-w-${alertIdCounter++}`, type: 'info', message: `${dayForecast.day}: High chance of rain (${dayForecast.chance_of_rain}%). Check drainage & field access.`, icon: 'cloud-rain' });
+                  alerts.push({ id: `a-w-${alertIdCounter++}`, type: 'info', message: `${dayForecast.day}: High chance of rain (${dayForecast.chance_of_rain}%). Check drainage.`, icon: 'cloud-rain' });
               }
-              // Alert for high temperature
-              if (dayForecast.high > 35) { // Example threshold
-                  alerts.push({ id: `a-w-${alertIdCounter++}`, type: 'warning', message: `${dayForecast.day}: High temperature forecast (${dayForecast.high}°C). Monitor crops for heat stress.`, icon: 'thermometer' });
+              if (dayForecast.high > 35) {
+                  alerts.push({ id: `a-w-${alertIdCounter++}`, type: 'warning', message: `${dayForecast.day}: High temperature (${dayForecast.high}°C). Monitor for heat stress.`, icon: 'thermometer' });
               }
-              // Alert for low temperature
-              if (dayForecast.low < 10) { // Example threshold
-                  alerts.push({ id: `a-w-${alertIdCounter++}`, type: 'warning', message: `${dayForecast.day}: Low temperature forecast (${dayForecast.low}°C). Consider frost protection if applicable.`, icon: 'thermometer' });
+              if (dayForecast.low < 10) {
+                  alerts.push({ id: `a-w-${alertIdCounter++}`, type: 'warning', message: `${dayForecast.day}: Low temperature (${dayForecast.low}°C). Consider frost protection.`, icon: 'thermometer' });
               }
           });
       }
-       // Alert for current high wind
-       if (currentWeatherData?.current?.windSpeed > 30) { // Example threshold
-            alerts.push({ id: `a-w-${alertIdCounter++}`, type: 'warning', message: `Current high wind speed (${currentWeatherData.current.windSpeed} km/h). Check for potential crop damage.`, icon: 'wind' });
+       if (currentWeatherData?.current?.windSpeed > 30) {
+            alerts.push({ id: `a-w-${alertIdCounter++}`, type: 'warning', message: `High wind speed (${currentWeatherData.current.windSpeed} km/h). Check for damage.`, icon: 'wind' });
        }
-
 
       // AI Insight-based Alerts
       if (currentAiInsights) {
           currentAiInsights.forEach(insight => {
               const lowerInsight = insight.toLowerCase();
-              // Alert for pest/disease mentions
               if (lowerInsight.includes('pest') || lowerInsight.includes('disease')) {
-                  alerts.push({ id: `a-ai-${alertIdCounter++}`, type: 'warning', message: `AI Alert: Potential pest/disease risk mentioned. Recommend scouting.`, icon: 'alert-triangle' });
+                  alerts.push({ id: `a-ai-${alertIdCounter++}`, type: 'warning', message: `AI Alert: Potential pest/disease risk. Recommend scouting.`, icon: 'alert-triangle' });
               }
-               // Alert for critical water stress mentions
                if (lowerInsight.includes('irrigation critical') || lowerInsight.includes('water stress')) {
-                   alerts.push({ id: `a-ai-${alertIdCounter++}`, type: 'warning', message: `AI Alert: Water stress indicated. Prioritize irrigation checks.`, icon: 'droplet' });
+                   alerts.push({ id: `a-ai-${alertIdCounter++}`, type: 'warning', message: `AI Alert: Water stress indicated. Check irrigation.`, icon: 'droplet' });
                }
-               // Add more keyword checks as needed
           });
       }
 
-      // Add a generic success/status alert for feedback (optional)
-      alerts.push({ id: `a-s-${alertIdCounter++}`, type: 'success', message: 'Data refreshed successfully.', icon: 'check-circle' });
+      // Generic success alert (optional)
+      // alerts.push({ id: `a-s-${alertIdCounter++}`, type: 'success', message: 'Data refreshed.', icon: 'check-circle' });
 
-      // --- Remove duplicate alerts before setting state ---
-      // This prevents the same alert message (e.g., high rain chance) from appearing multiple times if conditions persist
+      // Remove duplicates before setting state
       const uniqueAlerts = alerts.filter((alert, index, self) =>
-           index === self.findIndex((a) => (
-               a.message === alert.message && a.type === alert.type // Check for identical message and type
-           ))
+           index === self.findIndex((a) => (a.message === alert.message && a.type === alert.type))
        );
-
       setFarmAlerts(uniqueAlerts);
-
-  }, []); // Dependencies managed by the calling useEffect
+  }, []);
 
   // --- Firebase Authentication and Initial Data Loading ---
   useEffect(() => {
-    setLoading(true); // Show main loading indicator
-    // Subscribe to Firebase auth state changes
+    setLoading(true);
     const unsubscribe = onAuthStateChange(async (currentUser) => {
-      setUser(currentUser); // Update user state
+      setUser(currentUser);
       if (currentUser) {
-        // User is signed in (or signed in anonymously)
         try {
-          const data = await getUserData(); // Fetch user's data from Firestore
-          setUserData(data); // Update user data state
-
+          const data = await getUserData();
+          setUserData(data);
           if (!data) {
-            // No data found for this user, likely first time or onboarding needed
             console.log("No user data found, showing onboarding.");
-            setShowOnboarding(true); // Show the onboarding component
-            setLoading(false); // Hide main loading indicator
+            setShowOnboarding(true);
+            setLoading(false);
           } else {
-            // User data found
             console.log("User data found:", data);
-            setShowOnboarding(false); // Hide onboarding component
+            setShowOnboarding(false);
 
-            // --- Determine Location for Weather Fetch (Prioritize GPS, then Manual) ---
             let locationToFetch = null;
             let locationType = null;
-
-            // Priority 1: Valid GPS Coordinates from user data
             if (data.location && typeof data.location.latitude === 'number' && typeof data.location.longitude === 'number') {
                 locationToFetch = data.location;
                 locationType = 'coords';
-                console.log("Using GPS coordinates from user data for weather.");
-            // Priority 2: Valid Manual Location String from user data
             } else if (data.manualLocation && typeof data.manualLocation === 'string' && data.manualLocation.trim().length > 0) {
-                locationToFetch = data.manualLocation.trim(); // Use the cleaned string
+                locationToFetch = data.manualLocation.trim();
                 locationType = 'string';
-                console.log("Using manual location string from user data for weather.");
             }
 
-            // --- Fetch Weather if a valid location was determined ---
             if (locationToFetch) {
-                await fetchWeatherData(locationToFetch, locationType); // Fetch weather using determined location
+                await fetchWeatherData(locationToFetch, locationType);
             } else {
-                // Handle case where no valid location is stored
-                console.warn("No valid location (GPS or manual) found in user data. Weather not fetched initially.");
+                console.warn("No valid location found in user data.");
                 setWeatherData(null);
                 setWeatherLocationName('');
             }
-            // --- End Weather Fetch Logic for Initial Load ---
-
-            // Note: AI insights are triggered by a separate useEffect watching userData & weatherData
-            // Note: Alerts are triggered by a separate useEffect watching weatherData & aiInsights
-            setLoading(false); // Hide main loading indicator
+            setLoading(false);
           }
         } catch (error) {
-          // Handle errors during data fetching
-          console.error("Error loading user data or initial weather:", error);
-          setUserData(null); setWeatherData(null); setWeatherLocationName(''); // Clear states on error
-          setLoading(false); // Hide main loading indicator
+          console.error("Error loading user data/weather:", error);
+          setUserData(null); setWeatherData(null); setWeatherLocationName('');
+          setLoading(false);
         }
       } else {
-        // No user is signed in
         console.log("No user session found.");
-        // Clear all user-specific data
-        setUserData(null);
-        setWeatherData(null);
-        setWeatherLocationName('');
-        setAiInsights([]);
-        setErrorInsights(null);
-        setTasks([]);
-        setFarmAlerts([]);
-        setLoading(false); // Hide main loading indicator
-        // Optionally trigger anonymous sign-in here if you want functionality for logged-out users
+        setUserData(null); setWeatherData(null); setWeatherLocationName('');
+        setAiInsights([]); setErrorInsights(null); setTasks([]); setFarmAlerts([]);
+        setLoading(false);
+        // Optionally attempt anonymous sign-in here
         // signInUserAnonymously().catch(err => console.error("Anon sign-in failed:", err));
       }
     });
-
-    // Cleanup function: Unsubscribe from the auth listener when the component unmounts
     return () => unsubscribe();
-  }, [fetchWeatherData]); // Include fetchWeatherData because it's used inside and defined with useCallback
+  }, [fetchWeatherData]);
 
-  // --- Effect to Fetch AI Insights (runs when user data or weather data updates) ---
+  // --- Effect to Fetch AI Insights ---
    useEffect(() => {
        if (userData && weatherData) {
-           // Only fetch insights if we have both user data (for farm context) and weather data
            fetchAIInsights(userData, weatherData);
        } else {
-           // Clear insights and related states if data becomes unavailable
-           setAiInsights([]);
-           setLoadingInsights(false);
-           setErrorInsights(null);
-           // Clear AI-generated tasks if data is missing
+           setAiInsights([]); setLoadingInsights(false); setErrorInsights(null);
            setTasks(prevTasks => prevTasks.filter(t => !t.id.startsWith('ai-')));
        }
-   }, [userData, weatherData, fetchAIInsights]); // Dependencies: re-run if these change
+   }, [userData, weatherData, fetchAIInsights]);
 
-   // --- Effect to Generate Dynamic Alerts (runs when weather or insights change) ---
+   // --- Effect to Generate Dynamic Alerts ---
     useEffect(() => {
-        // Generate alerts if we have weather data OR AI insights
-        // This allows weather alerts even if AI insights fail, and vice-versa
         if (weatherData || aiInsights.length > 0) {
              generateDynamicAlerts(weatherData, aiInsights);
         } else {
-            // Clear alerts if there's no data to generate them from
             setFarmAlerts([]);
         }
-    }, [weatherData, aiInsights, generateDynamicAlerts]); // Dependencies: re-run if these change
+    }, [weatherData, aiInsights, generateDynamicAlerts]);
 
-  // --- Anonymous Sign-in Logic (attempts sign-in if no user after a delay) ---
+  // --- Anonymous Sign-in Attempt ---
   useEffect(() => {
-    // Set a timer to check user status after initial loading attempts
     const timer = setTimeout(() => {
-        // Check if user state is still null *after* the main loading state is false
         if (!user && !loading) {
-             console.log("No user detected after initial load, attempting anonymous sign-in...");
-             // Attempt anonymous sign-in (useful for providing basic functionality without login)
-             signInUserAnonymously().catch(error => {
-                 console.error("Error signing in anonymously:", error);
-                 // Handle potential errors (e.g., network issue, Firebase config problem)
-             });
+             console.log("Attempting anonymous sign-in...");
+             signInUserAnonymously().catch(error => console.error("Error signing in anonymously:", error));
         }
-    }, 1500); // Delay slightly to allow initial auth state check to complete
-
-    // Cleanup function: Clear the timer if the component unmounts or dependencies change
+    }, 1500);
     return () => clearTimeout(timer);
-  }, [user, loading]); // Dependencies: re-run if user or loading state changes
+  }, [user, loading]);
 
   // --- Splash Screen Logic ---
   useEffect(() => {
-     if (!showSplash) return; // Don't run if splash screen is hidden
-     // Simulate loading progress
+     if (!showSplash) return;
      const progressInterval = setInterval(() => setLoadingProgress(prev => Math.min(prev + 10, 100)), 200);
-     // Hide splash screen after progress reaches 100% and a minimum time
      const splashTimer = setTimeout(() => { if (loadingProgress >= 100) setShowSplash(false); }, 2500);
-     // Fallback timer: hide splash screen if main loading finishes, even if progress animation isn't done
      const fallbackTimer = setTimeout(() => { if (!loading) setShowSplash(false); }, 5000);
-
-     // Cleanup function: clear intervals and timers on unmount or when splash hides
      return () => {
          clearInterval(progressInterval);
          clearTimeout(splashTimer);
          clearTimeout(fallbackTimer);
      };
-  }, [showSplash, loadingProgress, loading]); // Dependencies for splash screen logic
+  }, [showSplash, loadingProgress, loading]);
 
   // --- Handle Onboarding Completion ---
   const handleOnboardingComplete = useCallback(async (newData) => {
-    console.log("Onboarding complete data received:", newData);
-    setLoading(true); // Show loading indicator during save/fetch
+    console.log("Onboarding complete:", newData);
+    setLoading(true);
     try {
-      // Update Firebase Auth profile (optional, if name is collected)
       if (newData.name) {
           await updateUserProfile(newData.name);
       }
-      // Save all collected onboarding data to Firestore
       await saveUserData(newData);
-      // Update local state immediately for responsiveness
       setUserData(newData);
-      // Hide the onboarding screen
       setShowOnboarding(false);
 
-      // --- Determine Location for immediate Weather Fetch after Onboarding ---
       let locationToFetch = null;
       let locationType = null;
-      // Priority 1: GPS Coordinates from onboarding data
       if (newData.location && typeof newData.location.latitude === 'number' && typeof newData.location.longitude === 'number') {
           locationToFetch = newData.location;
           locationType = 'coords';
-          console.log("Using GPS coordinates from onboarding for weather.");
-      // Priority 2: Manual Location String from onboarding data
       } else if (newData.manualLocation && typeof newData.manualLocation === 'string' && newData.manualLocation.trim().length > 0) {
           locationToFetch = newData.manualLocation.trim();
           locationType = 'string';
-          console.log("Using manual location string from onboarding for weather.");
       }
 
-      // Fetch weather immediately with the new location data
       if (locationToFetch) {
           await fetchWeatherData(locationToFetch, locationType);
       } else {
-          // Handle case where no valid location was provided during onboarding
-          console.warn("No valid location provided during onboarding, weather not fetched.");
+          console.warn("No valid location from onboarding.");
           setWeatherData(null);
           setWeatherLocationName('');
       }
-      // --- End Location Logic for Onboarding ---
-
-      // Note: AI Insights and Alerts will be triggered by the useEffect hooks watching the updated userData and weatherData states.
-
     } catch (error) {
-      console.error("Error during onboarding completion (saving data or fetching weather):", error);
-      // Optionally show an error message to the user
+      console.error("Error during onboarding completion:", error);
     } finally {
-        // Ensure loading indicator is hidden
         setLoading(false);
     }
-  }, [fetchWeatherData]); // Include fetchWeatherData because it's used inside
+  }, [fetchWeatherData]);
 
   // --- Toggle Task Completion ---
   const toggleTaskComplete = (taskId) => {
       setTasks(currentTasks => currentTasks.map(task =>
           task.id === taskId ? { ...task, completed: !task.completed } : task
       ));
-      // Optional: Add logic here to persist task completion status (e.g., to Firestore)
+      // TODO: Persist task completion status
   };
 
   // --- Reusable Featured Content Item Component ---
   const FeaturedContent = ({ title, iconName }) => (
      <div className="flex flex-col items-center p-3 text-center cursor-pointer hover:bg-green-50 rounded-lg transition-colors">
-       {/* Icon Container */}
        <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-2 border-2 border-green-500">
-         {getIconComponent(iconName, 28)} {/* Use helper to get icon */}
+         {getIconComponent(iconName, 28)}
        </div>
-       {/* Title */}
        <span className="text-xs text-green-800 font-medium">{title}</span>
      </div>
    );
 
   // --- Navigation Click Handler ---
   const handleNavClick = (tabName) => {
-      setActiveTab(tabName); // Set the active tab
-      // Close settings panel if it's open when navigating
+      setActiveTab(tabName);
       if (showSettings) {
           setShowSettings(false);
       }
@@ -616,17 +516,16 @@ Actionable Insights:
 
   // --- RENDER LOGIC ---
 
-  // 1. Show Splash Screen
+  // 1. Splash Screen
   if (showSplash) {
     return (
           <div className="splash-screen">
             <div className="logo-container">
               <div className="logo">
-                <Leaf size={80} color="#2E7D32" /> {/* Main logo icon */}
+                <Leaf size={80} color="#2E7D32" />
               </div>
               <h1 className="logo-text">AgriVerse AI</h1>
               <p className="tagline">The Future of Smart Farming</p>
-              {/* Loading progress bar */}
               <div className="loading-container">
                 <div className="loading-bar">
                   <div className="loading-progress" style={{ width: `${loadingProgress}%` }}></div>
@@ -638,80 +537,69 @@ Actionable Insights:
         );
   }
 
-  // 2. Show Main Loading Indicator (while fetching initial data)
+  // 2. Main Loading Indicator
   if (loading) {
      return (
           <div className="loading-screen">
-            {getIconComponent('loader', 48)} {/* Spinning loader icon */}
+            {getIconComponent('loader', 48)}
             <p>Loading your farm data...</p>
           </div>
         );
   }
 
-  // 3. Show Onboarding Screen (if required)
+  // 3. Onboarding Screen
   if (showOnboarding) {
-    // Render the UserOnboarding component and pass the completion handler
     return <UserOnboarding onComplete={handleOnboardingComplete} />;
   }
 
   // 4. Main Application Content Rendering Function
   const renderContent = () => {
     switch(activeTab) {
-      // Placeholder cases for other sections
-      case 'virtualFarmTwin': return <div className="full-width-content"><VirtualFarmTwin /></div>; // Render dedicated component
-      case 'copilot': return <div className="full-width-content"><h2 className="section-title">AI Copilot (Coming Soon)</h2><p>Chat with your AI farm assistant.</p></div>;
-      case 'dashboard': return <div className="full-width-content"><h2 className="section-title">Analytics Dashboard (Coming Soon)</h2><p>Visualize your farm's performance.</p></div>;
-      case 'finance': return <div className="full-width-content"><h2 className="section-title">Finance Tracker (Coming Soon)</h2><p>Manage farm expenses and income.</p></div>;
+      case 'virtualFarmTwin': return <div className="full-width-content"><VirtualFarmTwin /></div>;
+      // --- MODIFIED LINE BELOW ---
+      case 'CoPilot': return <div className="full-width-content"><CoPilot /></div>; // Render the CoPilot component (Corrected Casing)
+      // --- END MODIFICATION ---
+      case 'dashboard': return <div className="full-width-content"><h2 className="section-title">Analytics Dashboard (Coming Soon)</h2><p>Visualize farm performance.</p></div>;
+      case 'finance': return <div className="full-width-content"><h2 className="section-title">Finance Tracker (Coming Soon)</h2><p>Manage farm expenses.</p></div>;
 
-      // Default case: Render the Home tab content
       case 'home':
       default:
         return (
-          <div className="home-layout"> {/* Main layout container for home */}
-            {/* Left/Main Content Area */}
+          <div className="home-layout">
+            {/* Main Content Area */}
             <div className="main-content-area">
-
-              {/* Welcome Banner - Shown if user data exists */}
+              {/* Welcome Banner */}
               {userData && (
                 <div className="welcome-banner">
-                  {/* Welcome message and basic farm details */}
                   <div className="welcome-info">
                      <h1>Welcome back, {userData.name || 'Farmer'}!</h1>
                      <p className="farm-details-banner">
-                       {/* Display location confirmed by WeatherAPI */}
                        {weatherLocationName && <span><MapPin size={14} className="inline-icon" /> {weatherLocationName} • </span>}
-                       {/* Display other details from userData */}
                        {userData.farmName && <span>Farm: <strong>{userData.farmName}</strong> • </span>}
                        {userData.farmArea && <span>Area: <strong>{userData.farmArea} {userData.areaUnit}</strong> • </span>}
                        {userData.soilTexture && <span>Soil: <strong>{userData.soilTexture}</strong> • </span>}
                        {userData.cropTypes?.length > 0 && <span>Crops: <strong>{userData.cropTypes.join(', ')}</strong></span>}
                      </p>
                   </div>
-                   {/* Reminder: Farm Metrics are currently static placeholders */}
-                   {/* TODO: Integrate real sensor data or manual input for these metrics */}
+                   {/* Placeholder Farm Metrics */}
                    <div className="farm-metrics farm-metrics-static-reminder">
                         <div className="metric"><div className="metric-value">94%*</div><div className="metric-label">Soil</div></div>
                         <div className="metric"><div className="metric-value">87%*</div><div className="metric-label">Water</div></div>
                         <div className="metric"><div className="metric-value">76%*</div><div className="metric-label">Crops</div></div>
-                        <p style={{fontSize: '0.7rem', width: '100%', textAlign: 'center', marginTop: '5px', opacity: 0.7, color:'white'}}>*Placeholder data</p>
+                        <p style={{fontSize: '0.7rem', width: '100%', textAlign: 'center', marginTop: '5px', opacity: 0.7, color:'white'}}>*Placeholder</p>
                    </div>
                 </div>
               )}
-
-              {/* Row containing Weather and Alerts widgets */}
+              {/* Dashboard Row 1: Weather & Alerts */}
               <div className="dashboard-row">
                 {/* Weather Widget */}
                 <div className="dashboard-widget weather-widget">
                   <div className="widget-header">
                     <h2 className="widget-title">Weather Forecast</h2>
-                    {/* Display location confirmed by WeatherAPI */}
                     {weatherLocationName && <span className="widget-subtitle"><MapPin size={12} className="inline-icon" /> {weatherLocationName}</span>}
-                     {/* Suggestion: Add a small chart showing temp/precip forecast trend here */}
                   </div>
-                  {/* Conditional rendering: Show weather data or loading state */}
                   {weatherData ? (
                      <div className="weather-content">
-                        {/* Current weather conditions */}
                         <div className="current-weather">
                            <div className="weather-icon large-icon">{getIconComponent(weatherData.current.icon, 48)}</div>
                            <div className="weather-details">
@@ -723,10 +611,9 @@ Actionable Insights:
                                <div className="stat"><Wind size={16} /> {weatherData.current.windSpeed} km/h</div>
                                <div className="stat"><Droplet size={16} /> {weatherData.current.humidity}% Hum.</div>
                                <div className="stat"><CloudRain size={16}/> {weatherData.current.precip_mm} mm Rain</div>
-                                <div className="stat"><Sun size={16}/> UV {weatherData.current.uv}</div>
+                               <div className="stat"><Sun size={16}/> UV {weatherData.current.uv}</div>
                            </div>
                         </div>
-                        {/* 3-day forecast */}
                         <div className="weather-forecast">
                             {weatherData.forecast.map((day, index) => (
                                 <div className="forecast-day" key={index}>
@@ -739,53 +626,43 @@ Actionable Insights:
                         </div>
                      </div>
                   ) : (
-                     // Loading placeholder for weather
                      <div className="loading-placeholder">{getIconComponent('loader', 24)}<p>Loading weather...</p></div>
                   )}
                 </div>
-
-                {/* Farm Alerts Widget - Displays dynamically generated alerts */}
+                {/* Farm Alerts Widget */}
                 <div className="dashboard-widget alerts-widget">
                     <h2 className="widget-title">Farm Alerts</h2>
                     <div className="alerts-content scrollable">
-                        {/* Check if there are alerts to display */}
                         {farmAlerts.length > 0 ? (
-                            // Map through the alerts array
                             farmAlerts.map((alert) => (
-                                <div className={`alert-item alert-${alert.type}`} key={alert.id}> {/* Use unique alert ID as key */}
+                                <div className={`alert-item alert-${alert.type}`} key={alert.id}>
                                     <div className="alert-icon">{getIconComponent(alert.icon, 20)}</div>
                                     <p className="alert-message">{alert.message}</p>
                                 </div>
                             ))
                         ) : (
-                            // Message shown when there are no alerts
                             <p className="no-alerts">No current alerts.</p>
                         )}
                     </div>
                 </div>
               </div>
-
-              {/* Row containing Tasks and Featured Content widgets */}
+              {/* Dashboard Row 2: Tasks & Featured */}
               <div className="dashboard-row">
-                 {/* Tasks Widget - Displays dynamically generated tasks */}
+                 {/* Tasks Widget */}
                  <div className="dashboard-widget tasks-widget">
                      <div className="widget-header">
                          <h2 className="widget-title">Upcoming Tasks</h2>
-                         {/* Button to add tasks manually (functionality needs implementation) */}
-                         <button className="add-task-btn" title="Add Custom Task" onClick={() => alert('Task adding functionality needs implementation.')}>+ Add Task</button>
+                         <button className="add-task-btn" title="Add Custom Task" onClick={() => alert('Add Task TBD')}>+ Add Task</button>
                      </div>
                      <div className="tasks-content scrollable">
-                        {/* Filter out completed tasks before mapping */}
                         {tasks.filter(t => !t.completed).length > 0 ? (
                             <div className="task-list">
                                 {tasks.filter(t => !t.completed).map((task) => (
-                                   <div className="task-item" key={task.id}> {/* Use unique task ID as key */}
-                                      {/* Checkbox for marking task complete */}
+                                   <div className="task-item" key={task.id}>
                                       <label className="task-checkbox">
                                          <input type="checkbox" checked={task.completed} onChange={() => toggleTaskComplete(task.id)} />
                                          <span className="checkmark"></span>
                                       </label>
-                                      {/* Task details */}
                                       <div className="task-details">
                                          <div className={`task-title ${task.completed ? 'completed' : ''}`}>{task.title}</div>
                                          <div className="task-meta">
@@ -797,53 +674,38 @@ Actionable Insights:
                                 ))}
                             </div>
                          ) : (
-                            // Message shown when there are no pending tasks
                             <p className="no-tasks">No pending tasks.</p>
                          )}
                      </div>
-                     {/* Add Note: Full task adding requires state/form handling */}
                  </div>
-
-                 {/* Featured Content Widget (Tools & Resources) */}
+                 {/* Featured Content Widget */}
                  <div className="dashboard-widget featured-widget">
                      <h2 className="widget-title">Tools & Resources</h2>
-                     {/* Grid container for featured items (CSS fixed previously) */}
                      <div className="featured-content-grid">
-                         {/* Render reusable FeaturedContent components */}
                          <FeaturedContent title="Crop Calendar" iconName="calendar" />
                          <FeaturedContent title="Water Management" iconName="droplet" />
                          <FeaturedContent title="Soil Analysis" iconName="bar-chart-2" />
                          <FeaturedContent title="Pest & Disease" iconName="alert-triangle" />
-                         {/* Suggestion: Add more relevant tools based on actual features */}
-                         {/* Example: <FeaturedContent title="Market Prices" iconName="credit-card" /> */}
                      </div>
                  </div>
-                 {/* Suggestion: Consider adding a News Feed widget here using a free RSS/News API */}
               </div>
-
-            </div> {/* End main-content-area */}
-
-            {/* Right Sidebar - AI Insights */}
+            </div>
+            {/* Right Sidebar */}
             <div className="right-sidebar">
                 <div className="right-container">
-                    {/* Sidebar Header */}
                     <div className="widget-header">
                         <h2 className="container-title">
                             <BrainCircuit size={20} className="inline-icon"/> AI Insights
                         </h2>
-                        {/* Show loading spinner while fetching insights */}
                         {loadingInsights && getIconComponent('loader', 18)}
                     </div>
-                    {/* Scrollable content area for insights */}
                     <div className="sidebar-content scrollable">
-                        {/* Show error message if insights fetching failed */}
                         {errorInsights && (
                            <div className="ai-insight error">
                                <div className="insight-icon">{getIconComponent('alert-triangle', 20)}</div>
                                <p>Insights Error: {errorInsights}</p>
                            </div>
                         )}
-                        {/* Display insights if loaded successfully and no error */}
                         {!loadingInsights && !errorInsights && aiInsights.length > 0 && (
                            aiInsights.map((insight, index) => (
                                <div className="ai-insight" key={index}>
@@ -852,102 +714,95 @@ Actionable Insights:
                                </div>
                            ))
                         )}
-                        {/* Show placeholder messages if no insights are available */}
                         {!loadingInsights && !errorInsights && aiInsights.length === 0 && (
                            !userData ? <p className="no-insights">Complete onboarding for insights.</p> :
                            !weatherData ? <p className="no-insights">Waiting for weather data...</p> :
-                           <p className="no-insights">No specific insights available currently.</p>
+                           <p className="no-insights">No insights available.</p>
                         )}
                     </div>
                 </div>
-            </div> {/* End right-sidebar */}
-
-          </div> // End home-layout
+            </div>
+          </div>
         );
     }
   };
 
-  // --- Main Application Structure (Navigation, Settings Panel, Main Content Area) ---
+  // --- Main Application Structure ---
   return (
     <div className="app-container">
-       {/* Left Sidebar Navigation */}
+       {/* Navigation Sidebar */}
        <nav className="app-navigation">
-            {/* Brand Logo and Name */}
             <div className="nav-brand">
                 <Leaf size={24} color="#4CAF50" />
                 <span className="brand-name">AgriVerse AI</span>
             </div>
-            {/* Main Navigation Items */}
             <div className="nav-items">
-                {/* Map through defined tabs */}
-                {['home', 'virtualFarmTwin', 'copilot', 'dashboard', 'finance'].map(tab => (
-                    <div
-                        key={tab}
-                        className={`nav-item ${activeTab === tab ? 'active' : ''}`} // Highlight active tab
-                        onClick={() => handleNavClick(tab)} // Handle click event
-                        title={tab.charAt(0).toUpperCase() + tab.slice(1).replace('virtualFarmTwin', 'Farm Twin')} // Tooltip text
-                    >
-                        {/* Get appropriate icon for the tab */}
-                        {getIconComponent(
-                            tab === 'virtualFarmTwin' ? 'map-pin' :
-                            tab === 'home' ? 'home' :
-                            tab === 'copilot' ? 'bot' :
-                            tab === 'dashboard' ? 'bar-chart-2' :
-                            'credit-card', // Default for finance
-                            24
-                        )}
-                        {/* Text label for the tab */}
-                        <span className="nav-label">
-                            {tab === 'virtualFarmTwin' ? 'Farm Twin' : tab.charAt(0).toUpperCase() + tab.slice(1)}
-                        </span>
-                    </div>
-                ))}
+                {/* --- MODIFIED ARRAY BELOW --- */}
+                {['home', 'virtualFarmTwin', 'CoPilot', 'dashboard', 'finance'].map(tab => {
+                    // --- Determine Label and Icon based on corrected tab name ---
+                    let label = tab.charAt(0).toUpperCase() + tab.slice(1);
+                    let icon = 'credit-card'; // Default icon
+                    if (tab === 'home') { icon = 'home'; }
+                    else if (tab === 'virtualFarmTwin') { label = 'Farm Twin'; icon = 'map-pin'; }
+                    else if (tab === 'CoPilot') { label = 'CoPilot'; icon = 'bot'; } // Corrected Label and Icon check
+                    else if (tab === 'dashboard') { icon = 'bar-chart-2'; }
+                    else if (tab === 'finance') { icon = 'credit-card'; }
+
+                    return (
+                        <div
+                            key={tab} // Use corrected tab name as key
+                            className={`nav-item ${activeTab === tab ? 'active' : ''}`} // Compare with corrected tab name
+                            onClick={() => handleNavClick(tab)} // Pass corrected tab name
+                            title={label} // Use generated label for tooltip
+                        >
+                            {getIconComponent(icon, 24)}
+                            <span className="nav-label">{label}</span>
+                        </div>
+                    );
+                })}
+                 {/* --- END MODIFICATION --- */}
             </div>
-            {/* Bottom section of navigation (Settings, User Profile) */}
             <div className="nav-bottom">
-                {/* Settings Button */}
                 <div className="nav-item" onClick={toggleSettings} title="Settings">
                     {getIconComponent('settings', 24)}
                     <span className="nav-label">Settings</span>
                 </div>
-                {/* User Profile Display (shown only if user is logged in) */}
                 {user && (
                     <div className="user-profile" title="User Profile">
                         <div className="profile-pic">{getIconComponent('user', 24)}</div>
                         <div className="profile-info">
-                            <span className="profile-name">{userData?.name || 'Farmer'}</span> {/* Display user name or default */}
-                            <span className="profile-role">{userData?.farmName || 'Farm Owner'}</span> {/* Display farm name or default */}
+                            <span className="profile-name">{userData?.name || 'Farmer'}</span>
+                            <span className="profile-role">{userData?.farmName || 'Farm Owner'}</span>
                         </div>
                     </div>
                 )}
             </div>
        </nav>
 
-       {/* Settings Panel (conditionally rendered) */}
+       {/* Settings Panel */}
        {showSettings && (
           <div className="settings-panel">
               <div className="settings-header">
                   <h2>Settings</h2>
                   <button onClick={toggleSettings} className="close-settings-btn" title="Close Settings">&times;</button>
               </div>
-              {/* Placeholder settings list */}
               <ul className="settings-list">
                   <li>Profile</li>
                   <li>Farm Details</li>
                   <li>Notifications</li>
                   <li>Account</li>
                   <li>Help & Support</li>
-                  <li>Logout</li> {/* Add logout functionality here */}
+                  <li>Logout</li> {/* TODO: Add logout functionality */}
               </ul>
           </div>
        )}
 
        {/* Main Content Area */}
-       <main className={`main-content ${showSettings ? 'settings-open' : ''}`}> {/* Adjust class if settings panel is open */}
-         {renderContent()} {/* Render the content based on the active tab */}
+       <main className={`main-content ${showSettings ? 'settings-open' : ''}`}>
+         {renderContent()}
        </main>
     </div>
   );
 };
 
-export default App; // Export the main App component
+export default App;
