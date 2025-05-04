@@ -1,0 +1,5 @@
+{
+    "buildCommand": "npm install --legacy-peer-deps && vite build",
+    "outputDirectory": "dist"
+  }
+  
