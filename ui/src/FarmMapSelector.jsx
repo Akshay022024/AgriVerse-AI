@@ -1,429 +1,393 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { MapPin, Trash2, Check } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  MapPin, 
+  Pencil, 
+  Eraser, 
+  Target, 
+  Check, 
+  X, 
+  AlertTriangle,
+  Info
+} from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
-import 'leaflet-draw/dist/leaflet.draw.css'; // Import draw CSS
-import './FarmMapSelector.css'; // Make sure this CSS exists
+import './FarmMapSelector.css'; // We'll create this file separately
 
-// Using dynamic import for Leaflet since it requires window object
-const FarmMapSelector = ({
-  onLocationChange,
-  onBoundaryChange,
-  initialLocation = null,
-  initialBoundary = null
+// Using dynamic imports for Leaflet to avoid SSR issues
+const FarmMapSelector = ({ 
+  onLocationChange, 
+  onBoundaryChange, 
+  initialLocation = null, 
+  initialBoundary = null 
 }) => {
+  // Refs
   const mapRef = useRef(null);
-  const mapContainerRef = useRef(null);
+  const mapInstanceRef = useRef(null);
   const drawControlRef = useRef(null);
   const drawnItemsRef = useRef(null);
-  const locationMarkerRef = useRef(null); // Ref for the location marker
-  const activeDrawerRef = useRef(null); // To track active drawer for cancellation
-
-  const [L, setL] = useState(null); // Store Leaflet instance
-  const [mapLoaded, setMapLoaded] = useState(false);
-  const [drawingMode, setDrawingMode] = useState(false); // Consider renaming if only polygon
-  const [boundary, setBoundary] = useState(initialBoundary); // Stores GeoJSON
-  const [location, setLocation] = useState(initialLocation); // Stores { latitude, longitude }
-  const [mapCenter, setMapCenter] = useState([20, 0]); // Default world center
-  const [mapZoom, setMapZoom] = useState(2);
+  const locationMarkerRef = useRef(null);
+  
+  // State variables
+  const [isMapLoaded, setIsMapLoaded] = useState(false);
+  const [isDrawing, setIsDrawing] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [locationError, setLocationError] = useState(null);
-  const [isDrawingComplete, setIsDrawingComplete] = useState(false); // New state to track drawing completion
+  const [mapLoadError, setMapLoadError] = useState(null);
+  const [drawingMode, setDrawingMode] = useState('off'); // 'off', 'draw', 'erase'
+  const [boundaryDrawn, setBoundaryDrawn] = useState(false);
 
-  // --- Map Event Handlers (using useCallback) ---
-
-  const handleDrawCreated = useCallback((e) => {
-    if (!drawnItemsRef.current || !L) return;
-    const layer = e.layer;
-    // Set flag to prevent event conflicts
-    setIsDrawingComplete(true);
-    
-    // Clear previous drawings first (we only want one boundary)
-    drawnItemsRef.current.clearLayers();
-    drawnItemsRef.current.addLayer(layer);
-
-    // Extract GeoJSON from the drawn layer
-    const drawnGeoJSON = layer.toGeoJSON();
-    console.log("Boundary Drawn (GeoJSON):", drawnGeoJSON);
-    
-    // Make sure we have a valid GeoJSON object with all required properties
-    if (drawnGeoJSON && drawnGeoJSON.type === 'Feature') {
-      setBoundary(drawnGeoJSON);
-      
-      // Call the callback to inform parent component
-      if (onBoundaryChange) {
-        onBoundaryChange(drawnGeoJSON);
-      }
-    } else {
-      console.error("Invalid GeoJSON created:", drawnGeoJSON);
-    }
-    
-    setDrawingMode(false); // Exit drawing mode
-    // Reset flag after a short delay
-    setTimeout(() => setIsDrawingComplete(false), 100);
-  }, [L, onBoundaryChange]);
-
-  const handleDrawEdited = useCallback((e) => {
-    if (!drawnItemsRef.current || !L) return;
-    const layers = e.layers; // FeatureGroup containing edited layers
-
-    // Should only be one layer in our case
-    if (layers.getLayers().length > 0) {
-      const editedLayer = layers.getLayers()[0];
-      const updatedGeoJSON = editedLayer.toGeoJSON();
-      console.log("Boundary Edited (GeoJSON):", updatedGeoJSON);
-      setBoundary(updatedGeoJSON);
-
-      // Call the callback to inform parent component
-      if (onBoundaryChange) {
-        onBoundaryChange(updatedGeoJSON);
-      }
-    }
-  }, [L, onBoundaryChange]);
-
-  const handleDrawDeleted = useCallback(() => {
-    if (isDrawingComplete) return; // Prevent deletion during drawing completion
-    
-    console.log("Boundary Deleted");
-    setBoundary(null);
-    // Call the callback to inform parent component
-    if (onBoundaryChange) {
-      onBoundaryChange(null);
-    }
-  }, [onBoundaryChange, isDrawingComplete]);
-
-  // --- Map Initialization Effect ---
+  // Initialize the map after component mount
   useEffect(() => {
-    let mapInstance; // Temporary variable for cleanup
-
+    let L, map, drawControl, drawnItems;
+    
     const initializeMap = async () => {
       try {
-        console.log("Initializing map...");
-        // Dynamic import of Leaflet and Leaflet Draw
-        const leaflet = await import('leaflet');
-        await import('leaflet-draw'); // Import for side effects (attaches L.Draw)
-        setL(leaflet.default); // Store Leaflet instance in state
-        const LGlobal = leaflet.default; // Use LGlobal within this scope
-
-        // Fix default icon path issue with bundlers like Webpack/Vite
-        delete LGlobal.Icon.Default.prototype._getIconUrl;
-        LGlobal.Icon.Default.mergeOptions({
-          iconRetinaUrl: (await import('leaflet/dist/images/marker-icon-2x.png')).default,
-          iconUrl: (await import('leaflet/dist/images/marker-icon.png')).default,
-          shadowUrl: (await import('leaflet/dist/images/marker-shadow.png')).default,
-        });
-
-        // Determine initial view based on location/boundary
-        let initialCenter = mapCenter;
-        let initialZoom = mapZoom;
-        if (initialLocation) {
-            initialCenter = [initialLocation.latitude, initialLocation.longitude];
-            initialZoom = 14;
-        } else if (initialBoundary && initialBoundary.geometry?.coordinates) {
-            // Calculate bounds later if needed, start generic for now
-        }
-
-        // Initialize map only if container exists and map isn't already initialized
-        if (mapContainerRef.current && !mapRef.current) {
-          mapInstance = LGlobal.map(mapContainerRef.current).setView(initialCenter, initialZoom);
-          mapRef.current = mapInstance; // Store map instance in ref
-
-          // Add Tile Layer
-          LGlobal.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          }).addTo(mapInstance);
-
-          // Initialize FeatureGroup for drawn items
-          const items = new LGlobal.FeatureGroup();
-          mapInstance.addLayer(items);
-          drawnItemsRef.current = items;
-
-          // Initialize Draw Control with singleDrawMode set to true
-          const drawControl = new LGlobal.Control.Draw({
-            draw: {
-              polyline: false,
-              circle: false,
-              circlemarker: false,
-              marker: false, // We handle marker placement separately
-              rectangle: { 
-                shapeOptions: { color: '#3B82F6', weight: 3 },
-                // Force finishing on double click instead of last point click
-                finishOn: "dblclick"
+        // Dynamically import Leaflet and Leaflet Draw
+        const leafletModule = await import('leaflet');
+        const drawModule = await import('leaflet-draw');
+        L = leafletModule.default;
+        
+        // Make sure the map container exists
+        if (!mapRef.current) return;
+        
+        console.log("Initializing Leaflet map...");
+        
+        // Create map instance with default view
+        const defaultLocation = initialLocation || { latitude: 20, longitude: 0 };
+        map = L.map(mapRef.current).setView(
+          [defaultLocation.latitude, defaultLocation.longitude], 
+          initialLocation ? 13 : 2 // Zoom level - closer if we have a location
+        );
+        
+        // Add tile layer (OpenStreetMap)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          maxZoom: 19
+        }).addTo(map);
+        
+        // Create layer for drawn items
+        drawnItems = new L.FeatureGroup();
+        map.addLayer(drawnItems);
+        drawnItemsRef.current = drawnItems;
+        
+        // Initialize the draw control
+        drawControl = new L.Control.Draw({
+          draw: {
+            // Only allow polygon for farm boundaries
+            polyline: false,
+            rectangle: false,
+            circle: false,
+            circlemarker: false,
+            marker: false,
+            polygon: {
+              allowIntersection: false,
+              drawError: {
+                color: '#e1e100',
+                message: '<strong>Warning:</strong> Boundary cannot intersect itself.'
               },
-              polygon: { 
-                shapeOptions: { color: '#3B82F6', weight: 3 }, 
-                allowIntersection: false,
-                // Always complete shape even if clicking on first point
-                completeOn: "dblclick",
-                // Customize shape options
-                guideLayers: [],
-                shapeOptions: {
-                  color: '#3B82F6',
-                  weight: 3,
-                  opacity: 0.8,
-                  fill: true,
-                  fillColor: '#3B82F6',
-                  fillOpacity: 0.3,
-                  clickable: true
-                }
-              }
-            },
-            edit: { 
-              featureGroup: items, 
-              remove: true,
-              poly: {
-                allowIntersection: false
+              shapeOptions: {
+                color: '#3388ff',
+                fillOpacity: 0.2
               }
             }
-          });
-          
-          mapInstance.addControl(drawControl);
-          drawControlRef.current = drawControl;
-
-          // Add Event Listeners using the useCallback handlers
-          mapInstance.on(LGlobal.Draw.Event.CREATED, handleDrawCreated);
-          mapInstance.on(LGlobal.Draw.Event.EDITED, handleDrawEdited);
-          mapInstance.on(LGlobal.Draw.Event.DELETED, handleDrawDeleted);
-          
-          // Adding more specific event listeners for drawing actions
-          mapInstance.on(LGlobal.Draw.Event.DRAWSTART, (e) => {
-            console.log("Drawing started", e);
-            activeDrawerRef.current = e.drawer;
-          });
-          
-          mapInstance.on(LGlobal.Draw.Event.DRAWSTOP, (e) => {
-            console.log("Drawing stopped", e);
-            activeDrawerRef.current = null;
-          });
-
-          // Handle Initial Location Marker
-          if (initialLocation) {
-            const marker = LGlobal.marker([initialLocation.latitude, initialLocation.longitude])
-               .addTo(mapInstance)
-               .bindPopup('Farm Location');
-            locationMarkerRef.current = marker;
-            // Don't auto-open popup unless desired: .openPopup();
-            console.log("Initial location marker added.");
+          },
+          edit: {
+            featureGroup: drawnItems,
+            remove: true
           }
-
-          // Handle Initial Boundary Drawing
-          if (initialBoundary && initialBoundary.type === 'Feature' && initialBoundary.geometry?.coordinates) {
-            try {
-              const layer = LGlobal.geoJSON(initialBoundary, {
-                style: { 
-                  color: '#3B82F6', 
-                  weight: 3,
-                  opacity: 0.8,
-                  fill: true,
-                  fillColor: '#3B82F6',
-                  fillOpacity: 0.3 
-                }
-              }).addTo(items);
-              mapInstance.fitBounds(layer.getBounds());
-              console.log("Initial boundary drawn.");
-            } catch (err) {
-              console.error("Error rendering initial boundary:", err, initialBoundary);
-            }
-          } else if (initialBoundary) {
-            console.warn("Initial boundary provided but is not valid GeoJSON Feature:", initialBoundary);
-          }
-
-          setMapLoaded(true);
-          console.log("Map fully initialized.");
+        });
+        
+        // Don't add draw control right away
+        // We'll use our custom buttons to enable/disable drawing
+        drawControlRef.current = drawControl;
+        mapInstanceRef.current = map;
+        
+        // Add initial location marker if provided
+        if (initialLocation) {
+          const marker = L.marker([initialLocation.latitude, initialLocation.longitude], {
+            title: "Your Location"
+          }).addTo(map);
+          locationMarkerRef.current = marker;
         }
+        
+        // Add initial boundary if provided
+        if (initialBoundary) {
+          try {
+            // Parse GeoJSON if it's a string
+            const boundary = typeof initialBoundary === 'string' 
+              ? JSON.parse(initialBoundary) 
+              : initialBoundary;
+              
+            L.geoJSON(boundary, {
+              style: {
+                color: '#3388ff',
+                fillOpacity: 0.2
+              }
+            }).eachLayer((layer) => {
+              drawnItems.addLayer(layer);
+              setBoundaryDrawn(true);
+            });
+          } catch (err) {
+            console.error("Failed to parse and display initial boundary:", err);
+          }
+        }
+        
+        // Handle draw events
+        map.on(L.Draw.Event.CREATED, (event) => {
+          // Clear previous items when a new boundary is drawn
+          drawnItems.clearLayers();
+          
+          const layer = event.layer;
+          drawnItems.addLayer(layer);
+          setBoundaryDrawn(true);
+          
+          // Convert to GeoJSON for storage
+          const drawnGeoJSON = drawnItems.toGeoJSON();
+          // Only pass the first feature if there is one
+          const boundaryFeature = drawnGeoJSON.features && drawnGeoJSON.features.length > 0 
+            ? drawnGeoJSON.features[0] 
+            : null;
+          
+          // Call parent callback with the boundary
+          onBoundaryChange(boundaryFeature);
+          
+          // Exit drawing mode
+          setDrawingMode('off');
+          setIsDrawing(false);
+        });
+        
+        // Handle edit events
+        map.on(L.Draw.Event.EDITED, (event) => {
+          const drawnGeoJSON = drawnItems.toGeoJSON();
+          const boundaryFeature = drawnGeoJSON.features && drawnGeoJSON.features.length > 0 
+            ? drawnGeoJSON.features[0] 
+            : null;
+          onBoundaryChange(boundaryFeature);
+        });
+        
+        // Handle delete events
+        map.on(L.Draw.Event.DELETED, (event) => {
+          if (drawnItems.getLayers().length === 0) {
+            setBoundaryDrawn(false);
+            onBoundaryChange(null);
+          }
+        });
+        
+        // Invalidate map size after initialization
+        setTimeout(() => {
+          map.invalidateSize();
+        }, 100);
+        
+        setIsMapLoaded(true);
       } catch (error) {
         console.error("Error initializing map:", error);
-        setLocationError("Failed to load map components. Please refresh the page.");
+        setMapLoadError("Failed to load map. Please check your internet connection and try again.");
       }
     };
-
+    
     initializeMap();
-
+    
     // Cleanup function
     return () => {
-      console.log("Cleaning up map...");
-      if (mapInstance) { // Use the temporary variable for cleanup
-         mapInstance.off(L.Draw.Event.CREATED, handleDrawCreated);
-         mapInstance.off(L.Draw.Event.EDITED, handleDrawEdited);
-         mapInstance.off(L.Draw.Event.DELETED, handleDrawDeleted);
-         mapInstance.remove();
-         mapRef.current = null; // Clear ref
-         console.log("Map instance removed.");
+      if (mapInstanceRef.current) {
+        console.log("Cleaning up map instance...");
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [handleDrawCreated, handleDrawEdited, handleDrawDeleted]); // Dependencies: Handlers ensure cleanup uses correct functions
+  }, []); // Empty dependency array for one-time initialization
 
-  // --- Location Handling ---
-  const updateLocationMarker = (lat, lon) => {
-    if (!mapRef.current || !L) return;
-    const latLng = [lat, lon];
-    if (locationMarkerRef.current) {
-      locationMarkerRef.current.setLatLng(latLng);
-      console.log("Location marker updated.");
-    } else {
-      const marker = L.marker(latLng)
-        .addTo(mapRef.current)
-        .bindPopup('Farm Location');
-      locationMarkerRef.current = marker;
-      console.log("New location marker created.");
-    }
-    mapRef.current.setView(latLng, 14); // Zoom in on the new location
-    // locationMarkerRef.current.openPopup(); // Optionally open popup
+  // Handle starting drawing mode
+  const handleStartDrawing = () => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    
+    setDrawingMode('draw');
+    setIsDrawing(true);
+    
+    // Start the polygon drawing tool
+    new L.Draw.Polygon(map, drawControlRef.current.options.draw.polygon).enable();
   };
-
-  const getCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      setLocationError("Geolocation is not supported by your browser.");
-      return;
-    }
-
+  
+  // Handle erasing the current boundary
+  const handleClearBoundary = () => {
+    const drawnItems = drawnItemsRef.current;
+    if (!drawnItems) return;
+    
+    drawnItems.clearLayers();
+    setBoundaryDrawn(false);
+    onBoundaryChange(null);
+  };
+  
+  // Handle canceling the current drawing
+  const handleCancelDrawing = () => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    
+    // Stop any active drawing
+    map.fire('draw:cancel');
+    setDrawingMode('off');
+    setIsDrawing(false);
+  };
+  
+  // Handle getting the current location
+  const handleGetLocation = () => {
     setIsGettingLocation(true);
     setLocationError(null);
-    console.log("Attempting to get current location...");
-
+    
+    if (!navigator.geolocation) {
+      setLocationError("Geolocation is not supported by your browser");
+      setIsGettingLocation(false);
+      return;
+    }
+    
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const newLocation = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude
-        };
-        console.log("Geolocation success:", newLocation);
-        setLocation(newLocation);
-        setIsGettingLocation(false);
-
-        // Call the callback to inform parent component
-        if (onLocationChange) {
-          onLocationChange(newLocation);
+        const { latitude, longitude } = position.coords;
+        const locationData = { latitude, longitude };
+        
+        // Update location marker
+        const map = mapInstanceRef.current;
+        if (map) {
+          // Remove existing marker if any
+          if (locationMarkerRef.current) {
+            map.removeLayer(locationMarkerRef.current);
+          }
+          
+          // Add new marker
+          const L = window.L; // Use global L if available
+          const marker = L.marker([latitude, longitude], {
+            title: "Your Location"
+          }).addTo(map);
+          locationMarkerRef.current = marker;
+          
+          // Center and zoom the map
+          map.setView([latitude, longitude], 14);
         }
-
-        // Update map view and marker
-        updateLocationMarker(newLocation.latitude, newLocation.longitude);
+        
+        // Call the callback
+        onLocationChange(locationData);
+        setIsGettingLocation(false);
       },
       (error) => {
-        console.error("Error getting geolocation:", error);
-        let message = "Couldn't get your location.";
-        switch(error.code) {
-            case error.PERMISSION_DENIED: message += " Permission denied."; break;
-            case error.POSITION_UNAVAILABLE: message += " Location unavailable."; break;
-            case error.TIMEOUT: message += " Request timed out."; break;
-            default: message += " An unknown error occurred."; break;
+        console.error("Geolocation error:", error);
+        let errorMsg = "Failed to get your location";
+        
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMsg = "Location permission denied. Please allow location access in your browser settings.";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMsg = "Location information is unavailable. Please try again later.";
+            break;
+          case error.TIMEOUT:
+            errorMsg = "Location request timed out. Please try again.";
+            break;
+          default:
+            errorMsg = "An unknown error occurred while getting your location.";
         }
-        setLocationError(message);
+        
+        setLocationError(errorMsg);
         setIsGettingLocation(false);
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 } // Options: high accuracy, 10s timeout, no cache
+      { 
+        enableHighAccuracy: true, 
+        timeout: 10000, 
+        maximumAge: 0 
+      }
     );
   };
 
-  // --- Drawing Control ---
-  const toggleDrawingMode = () => {
-    if (!mapRef.current || !L || !drawControlRef.current) return;
-
-    if (!drawingMode) {
-      // Clear existing layers before starting a new drawing
-      if (drawnItemsRef.current) {
-        drawnItemsRef.current.clearLayers();
-        // Inform parent component that boundary is cleared
-        if (onBoundaryChange) {
-          onBoundaryChange(null);
-        }
-        setBoundary(null);
-      }
-      
-      // Find the polygon draw handler and enable it
-      const polygonDrawer = new L.Draw.Polygon(mapRef.current, drawControlRef.current.options.draw.polygon);
-      polygonDrawer.enable();
-      activeDrawerRef.current = polygonDrawer;
-      console.log("Polygon drawing enabled.");
-      setDrawingMode(true);
-    } else {
-      // Cancel drawing if active
-      if (activeDrawerRef.current && activeDrawerRef.current.disable) {
-        activeDrawerRef.current.disable();
-        activeDrawerRef.current = null;
-      }
-      console.log("Drawing canceled.");
-      setDrawingMode(false);
-    }
-  };
-
-  const clearBoundaries = () => {
-    if (drawnItemsRef.current) {
-      drawnItemsRef.current.clearLayers();
-      console.log("Cleared drawn boundaries from map.");
-      // This will trigger the handleDrawDeleted callback via map events if setup correctly,
-      // but call it explicitly for robustness in case event doesn't fire.
-      setBoundary(null);
-      if (onBoundaryChange) {
-        onBoundaryChange(null);
-      }
-    }
-  };
-
-  // --- Render ---
   return (
     <div className="farm-map-selector">
-      <div className="map-controls">
-        <button
-          type="button" // Ensure buttons don't submit forms
-          className="map-button get-location-button"
-          onClick={getCurrentLocation}
-          disabled={isGettingLocation || !mapLoaded}
-        >
-          <MapPin size={18} className="button-icon" />
-          {isGettingLocation ? 'Getting Location...' : (location ? 'Update My Location' : 'Use My Location')}
-        </button>
-
-        <button
-          type="button"
-          className={`map-button draw-button ${drawingMode ? 'active' : ''}`}
-          onClick={toggleDrawingMode}
-          disabled={!mapLoaded} // Disable until map is ready
-        >
-          {drawingMode ? 'Cancel Drawing' : (boundary ? 'Redraw Boundary' : 'Draw Farm Boundary')}
-        </button>
-
-        <button
-          type="button"
-          className="map-button clear-button"
-          onClick={clearBoundaries}
-          disabled={!boundary || !mapLoaded} // Disable if no boundary or map not ready
-        >
-          <Trash2 size={18} className="button-icon" />
-          Clear Boundary
-        </button>
-      </div>
-
-      {locationError && <p className="map-error" role="alert">{locationError}</p>}
-
-      {/* Info Display */}
-      <div className="map-info-display">
-        {location && (
-          <div className="location-info">
-            <Check size={16} className="info-check-icon" />
-            <span>Location Set: {location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}</span>
+      {/* Map error message */}
+      {mapLoadError && (
+        <div className="map-error-message">
+          <AlertTriangle size={20} />
+          <p>{mapLoadError}</p>
+        </div>
+      )}
+      
+      {/* Map container */}
+      <div ref={mapRef} className="map-container"></div>
+      
+      {/* Map controls */}
+      {isMapLoaded && (
+        <div className="map-controls">
+          {/* Location controls */}
+          <div className="control-section">
+            <button 
+              className={`control-button location-button ${isGettingLocation ? 'loading' : ''}`}
+              onClick={handleGetLocation}
+              disabled={isGettingLocation}
+              title="Get my current location"
+            >
+              {isGettingLocation ? 
+                <div className="button-spinner"></div> : 
+                <><Target size={16} /> <span>My Location</span></>
+              }
+            </button>
           </div>
-        )}
-        {boundary && (
-          <div className="boundary-info">
-            <Check size={16} className="info-check-icon" />
-            <span>Boundary Drawn</span>
-          </div>
-        )}
+          
+          {/* Drawing controls - show when not drawing */}
+          {!isDrawing && (
+            <div className="control-section">
+              <button 
+                className={`control-button draw-button ${boundaryDrawn ? 'disabled' : ''}`}
+                onClick={handleStartDrawing}
+                disabled={boundaryDrawn}
+                title={boundaryDrawn ? "Clear existing boundary before drawing new one" : "Draw farm boundary"}
+              >
+                <Pencil size={16} /> <span>Draw Boundary</span>
+              </button>
+              
+              {boundaryDrawn && (
+                <button 
+                  className="control-button clear-button"
+                  onClick={handleClearBoundary}
+                  title="Clear farm boundary"
+                >
+                  <Eraser size={16} /> <span>Clear</span>
+                </button>
+              )}
+            </div>
+          )}
+          
+          {/* Active drawing controls - show when drawing */}
+          {isDrawing && (
+            <div className="control-section drawing-active">
+              <div className="drawing-message">
+                <Info size={16} />
+                <span>Click on map to create boundary points. Click on first point to complete.</span>
+              </div>
+              <button 
+                className="control-button cancel-button"
+                onClick={handleCancelDrawing}
+                title="Cancel drawing"
+              >
+                <X size={16} /> <span>Cancel</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+      
+      {/* Location error message */}
+      {locationError && (
+        <div className="location-error">
+          <AlertTriangle size={16} />
+          <p>{locationError}</p>
+        </div>
+      )}
+      
+      {/* Helper text */}
+      <div className="map-helper-text">
+        <p>
+          <MapPin size={14} className="helper-icon" />
+          {boundaryDrawn ? 
+            "Farm boundary saved. You can clear and redraw if needed." : 
+            "Use the tools above to mark your farm location and draw its boundary."}
+        </p>
       </div>
-
-      {/* Map Container */}
-      <div
-        ref={mapContainerRef}
-        className="map-container"
-        style={{ height: '400px', width: '100%', backgroundColor: '#eee' }} // Added background color
-      >
-        {!mapLoaded && <div className="map-loading">Loading Map...</div>}
-      </div>
-
-      <p className="map-instructions">
-        Use 'My Location' or click 'Draw Farm Boundary' then click points on the map. <strong>Double-click</strong> to finish drawing. Use map controls (top-left) to edit or delete.
-      </p>
     </div>
   );
 };

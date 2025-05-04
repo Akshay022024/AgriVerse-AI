@@ -1,223 +1,230 @@
 /* FarmMapSelector.css */
 
+/* Container for the entire map component */
 .farm-map-selector {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  position: relative;
+  width: 100%;
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  background-color: #fff;
-  padding: 16px;
-  margin-bottom: 20px;
 }
 
-/* Map Container */
+/* Map container styles */
 .map-container {
-  height: 400px;
+  height: 500px;
   width: 100%;
-  border-radius: 6px;
-  overflow: hidden;
-  position: relative;
-  border: 1px solid #e2e8f0;
-  margin: 12px 0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  z-index: 1;
 }
 
-/* Controls */
+/* Override default Leaflet styles */
+.leaflet-container {
+  font-family: inherit;
+  border-radius: 8px;
+}
+
+.leaflet-control-attribution {
+  font-size: 10px;
+}
+
+/* Map controls container */
 .map-controls {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 500;
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 10px;
-  margin-bottom: 12px;
 }
 
-.map-button {
+/* Individual control sections */
+.control-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background-color: white;
+  padding: 8px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* For the active drawing message and button */
+.drawing-active {
+  border-left: 3px solid #3388ff;
+}
+
+.drawing-message {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  margin-bottom: 8px;
+  color: #3388ff;
+  max-width: 220px;
+}
+
+/* Shared button styles */
+.control-button {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
   padding: 8px 12px;
-  border-radius: 6px;
+  border-radius: 4px;
+  border: none;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
-  border: 1px solid #e2e8f0;
+  white-space: nowrap;
+  color: #333;
   background-color: white;
-  color: #4b5563;
-  min-width: 120px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.map-button:hover:not(:disabled) {
-  background-color: #f9fafb;
+.control-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
 }
 
-.map-button:active:not(:disabled) {
-  transform: translateY(1px);
+.control-button:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
-.map-button:disabled {
+.control-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
-.button-icon {
-  margin-right: 6px;
-}
-
-.get-location-button {
-  background-color: #3b82f6;
+/* Specific button styles */
+.location-button {
+  background-color: #4caf50;
   color: white;
-  border-color: #2563eb;
-}
-
-.get-location-button:hover:not(:disabled) {
-  background-color: #2563eb;
 }
 
 .draw-button {
-  background-color: #10b981;
+  background-color: #3388ff;
   color: white;
-  border-color: #059669;
 }
 
-.draw-button:hover:not(:disabled) {
-  background-color: #059669;
+.clear-button {
+  background-color: #f44336;
+  color: white;
 }
 
-.draw-button.active {
-  background-color: #f59e0b;
-  border-color: #d97706;
+.cancel-button {
+  background-color: #f44336;
+  color: white;
 }
 
-.clear-button, .clear-location-button {
-  background-color: #f3f4f6;
-  color: #4b5563;
+/* Loading spinner for the location button */
+.button-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 1s linear infinite;
 }
 
-.clear-button:hover:not(:disabled), .clear-location-button:hover:not(:disabled) {
-  background-color: #e5e7eb;
-  color: #111827;
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-/* Info Display */
-.map-info-display {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  margin-bottom: 8px;
-  font-size: 14px;
-}
-
-.location-info, .boundary-info {
+/* Error messages */
+.map-error-message, .location-error {
   display: flex;
   align-items: center;
-  padding: 6px 10px;
-  background-color: #f3f4f6;
+  gap: 8px;
+  background-color: #fff3f3;
+  border-left: 4px solid #f44336;
+  padding: 12px;
+  margin-bottom: 10px;
   border-radius: 4px;
-  color: #4b5563;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.info-check-icon {
-  color: #10b981;
-  margin-right: 6px;
-}
-
-/* Error Display */
-.map-error {
-  margin: 8px 0;
-  padding: 8px 12px;
-  background-color: #fee2e2;
-  border-left: 3px solid #ef4444;
-  color: #b91c1c;
-  border-radius: 4px;
+.map-error-message p, .location-error p {
+  margin: 0;
   font-size: 14px;
+  color: #d32f2f;
 }
 
-/* Loading State */
-.map-loading {
+.location-error {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(241, 245, 249, 0.8);
+  bottom: 60px;
+  left: 10px;
+  right: 10px;
+  z-index: 400;
+  background-color: rgba(255, 243, 243, 0.95);
+}
+
+/* Helper text at the bottom */
+.map-helper-text {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  right: 10px;
+  z-index: 400;
+  background-color: rgba(255, 255, 255, 0.9);
+  padding: 8px 12px;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.map-helper-text p {
+  margin: 0;
+  font-size: 13px;
+  color: #555;
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  font-weight: 500;
-  color: #4b5563;
+  gap: 6px;
 }
 
-/* Instructions */
-.map-instructions {
-  margin-top: 12px;
-  font-size: 14px;
-  color: #6b7280;
-  line-height: 1.5;
+.helper-icon {
+  color: #3388ff;
 }
 
-/* Responsive adjustments */
-@media (max-width: 640px) {
-  .map-controls {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .map-button {
-    width: 100%;
-  }
-  
+/* Mobile responsiveness */
+@media (max-width: 600px) {
   .map-container {
-    height: 300px;
+    height: 400px;
+  }
+  
+  .map-controls {
+    width: calc(100% - 20px);
+  }
+  
+  .control-button span {
+    display: none;
+  }
+  
+  .control-button {
+    padding: 8px;
+  }
+  
+  .drawing-message {
+    font-size: 11px;
+    max-width: 100%;
   }
 }
 
-/* Leaflet Custom Styles - Ensure these don't conflict with Leaflet's default styles */
+/* Additional styles for Leaflet Draw */
 .leaflet-draw-toolbar a {
-  background-color: white;
+  background-size: 20px 20px;
 }
 
 .leaflet-draw-actions a {
+  font-size: 12px;
   background-color: white;
-  color: #4b5563;
 }
 
-.leaflet-container {
-  font: inherit;
-}
-
-/* Popup style enhancements */
-.leaflet-popup-content {
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.leaflet-popup-content-wrapper {
-  border-radius: 6px;
-}
-
-/* Make the drawing layer slightly transparent so the map underneath is visible */
-.leaflet-overlay-pane path.leaflet-interactive {
-  stroke-opacity: 0.8;
-  fill-opacity: 0.25;
-}
-
-/* Style for the popup content */
-.map-popup-content {
-  text-align: center;
-  font-weight: 500;
-}
-
-/* Style for the edit handle points */
-.leaflet-edit-resize,
-.leaflet-edit-marker-selected,
-.leaflet-edit-move {
-  border: 2px solid rgba(59, 130, 246, 0.9) !important;
-}
-
-/* Style for vertex handles when editing polygons */
-.leaflet-vertex-icon {
-  background-color: #3b82f6;
-  border: 2px solid white;
-  border-radius: 50%;
+/* Handle visibility of Leaflet Draw toolbar buttons - hide default buttons */
+.leaflet-draw.leaflet-control {
+  display: none;
 }

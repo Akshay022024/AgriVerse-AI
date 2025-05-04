@@ -182,12 +182,16 @@ const UserOnboarding = () => {
   };
 
   // --- Function to prepare data for Firestore ---
+// --- Improved function to prepare data for Firestore ---
 const prepareDataForFirebase = (data) => {
-  console.log("Preparing data for Firebase. Initial data:", data);
+  console.log("Preparing data for Firebase. Initial data state:");
+  console.log("farmBoundary exists:", !!data.farmBoundary);
+  console.log("farmBoundary type:", data.farmBoundary ? typeof data.farmBoundary : "N/A");
+  
   // Create a deep copy to avoid mutating the original state directly
   const processedData = JSON.parse(JSON.stringify(data));
 
-  // --- Properly handle farmBoundary object conversion ---
+  // --- Enhanced farmBoundary object conversion ---
   if (processedData.farmBoundary && typeof processedData.farmBoundary === 'object') {
     try {
       // Ensure farmBoundary is a properly formed GeoJSON Feature object
@@ -201,6 +205,7 @@ const prepareDataForFirebase = (data) => {
             properties: {},
             geometry: processedData.farmBoundary
           };
+          console.log("Wrapped geometry in Feature object");
         }
       }
       
@@ -208,28 +213,37 @@ const prepareDataForFirebase = (data) => {
       if (processedData.farmBoundary.type === 'Feature' && 
           processedData.farmBoundary.geometry && 
           processedData.farmBoundary.geometry.coordinates) {
+            
         // Convert the entire GeoJSON object to a JSON string
         const boundaryString = JSON.stringify(processedData.farmBoundary);
         processedData.farmBoundary = boundaryString;
-        console.log("Successfully stringified farmBoundary:", boundaryString.substring(0, 100) + "...");
+        
+        console.log("Successfully stringified farmBoundary:", 
+                   boundaryString.substring(0, 100) + "...");
       } else {
-        console.warn("Invalid GeoJSON structure in farmBoundary:", processedData.farmBoundary);
+        console.warn("Invalid GeoJSON structure in farmBoundary:", 
+                    JSON.stringify(processedData.farmBoundary).substring(0, 200));
         processedData.farmBoundary = null;
       }
     } catch (e) {
       console.error("Could not stringify farmBoundary:", e);
       // Set boundary to null if stringification fails
       processedData.farmBoundary = null; 
-      // Inform user
-      throw new Error("There was an issue processing the farm boundary data: " + e.message);
+      // Don't throw error, just continue with null boundary
+      console.error("Setting farmBoundary to null and continuing");
     }
   } else if (processedData.farmBoundary === null) {
     // If boundary is explicitly null, leave it as null (user cleared it)
     console.log("Farm boundary is null - keeping as null");
   } else if (processedData.farmBoundary) {
-    // If it exists but isn't the expected object, log it and nullify
-    console.warn("farmBoundary exists but is not a valid GeoJSON Feature object:", processedData.farmBoundary);
-    processedData.farmBoundary = null;
+    // If it exists but isn't the expected object, log it and check if it's already a string
+    console.warn("farmBoundary exists but is not an object:", 
+                typeof processedData.farmBoundary);
+                
+    // If it's already a string, leave it as is (might be from a previous save)
+    if (typeof processedData.farmBoundary !== 'string') {
+      processedData.farmBoundary = null;
+    }
   }
   // --- End farmBoundary processing ---
 
@@ -254,32 +268,11 @@ const prepareDataForFirebase = (data) => {
       processedData[key] = map; // Replace the array with the map
       console.log(`Converted array '${key}' to map.`);
     } else if (Array.isArray(processedData[key]) && processedData[key].length === 0) {
-      // Handle empty arrays
-      delete processedData[key]; // Option 2: Don't store empty fields (often preferred)
-      console.log(`Removed empty array '${key}'.`);
+      // Handle empty arrays - create an empty map object instead of null
+      processedData[key] = {}; 
+      console.log(`Converted empty array '${key}' to empty object.`);
     }
   });
-
-  // Ensure no complex objects remain other than allowed ones
-  for (const key in processedData) {
-    if (typeof processedData[key] === 'object' && processedData[key] !== null && 
-        !['location'].includes(key) && typeof processedData[key] !== 'string' && 
-        !Array.isArray(processedData[key]) && 
-        !(key.endsWith('Map') || typeof processedData[key] === 'string')) {
-        
-      // Check if it's a simple map created by array conversion
-      const isSimpleMap = Object.keys(processedData[key]).every(k => k.startsWith('item_'));
-      if (!isSimpleMap && key !== 'farmBoundary') { // farmBoundary is now stringified
-        console.warn(`Unexpected object found at key '${key}'. Removing before save. Value:`, processedData[key]);
-        // Remove unexpected objects
-        delete processedData[key];
-      }
-    } else if (Array.isArray(processedData[key])) {
-      // This should not happen if arrayKeysToConvert logic is correct
-      console.error(`Unexpected array found at key '${key}' after conversion attempt. Removing. Value:`, processedData[key]);
-      delete processedData[key]; // Remove unexpected arrays
-    }
-  }
 
   // Add timestamps for creation/update if not present
   if (!processedData.createdAt) {
@@ -287,7 +280,8 @@ const prepareDataForFirebase = (data) => {
   }
   processedData.updatedAt = new Date().toISOString();
   
-  console.log("Data prepared for Firebase:", processedData);
+  console.log("Data prepared for Firebase. farmBoundary type:", 
+              typeof processedData.farmBoundary);
   return processedData;
 };
 // --- End of prepareDataForFirebase ---
@@ -335,7 +329,7 @@ const prepareDataForFirebase = (data) => {
       setTimeout(() => {
         console.log("Redirecting to dashboard...");
         // Replace with your actual navigation logic (e.g., using react-router)
-        // window.location.href = '/dashboard';
+        window.location.href = '/';
       }, 2000);
 
     } catch (err) {

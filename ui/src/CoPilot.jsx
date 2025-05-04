@@ -1,18 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { auth, db, signInUserAnonymously, getUserData } from './firebase';
 import { collection, addDoc, query, orderBy, limit, onSnapshot, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
-import { Camera, Mic, MicOff, Send, Volume2, VolumeX, Globe, Menu, X, Moon, Sun, RefreshCw } from 'lucide-react';
+import { Mic, MicOff, Send, Volume2, VolumeX, Globe, Menu, X, Moon, Sun, RefreshCw } from 'lucide-react'; // Removed Camera
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import './CoPilot.css';
 
-// Languages supported by the CoPilot - reduced to English, Telugu, and Hindi
+// Languages supported by the CoPilot
 const languages = [
   { code: 'en', name: 'English' },
   { code: 'te', name: 'Telugu' },
   { code: 'hi', name: 'Hindi' }
 ];
 
-// Free TTS API using browser's built-in speech synthesis
+// --- Text-to-Speech (TTS) - Using browser's built-in API ---
 const synthesizeSpeech = async (text, language) => {
   return new Promise((resolve, reject) => {
     const synth = window.speechSynthesis;
@@ -20,113 +20,166 @@ const synthesizeSpeech = async (text, language) => {
       reject("Browser doesn't support speech synthesis");
       return;
     }
+    // Optional: Cancel any ongoing speech before starting new one
+    synth.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = language; // e.g. 'en-US', 'hi-IN', 'te-IN'
+    utterance.lang = language; // e.g., 'en-US', 'hi-IN', 'te-IN'
     utterance.onend = () => resolve();
-    utterance.onerror = (err) => reject(err);
+    utterance.onerror = (err) => {
+        console.error("Speech Synthesis Error:", err);
+        reject(err);
+    };
     synth.speak(utterance);
   });
 };
 
-// Free STT API - Using browser's Web Speech API
-const setupSpeechRecognition = (language, onResult, onEnd) => {
+// --- Speech-to-Text (STT) - Using browser's Web Speech API ---
+const setupSpeechRecognition = (language, onResult, onEnd, onError) => {
   if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
     console.error("Speech recognition not supported in this browser");
-    return { start: () => {}, stop: () => {} };
+    onError("Speech recognition not supported in this browser");
+    return null; // Return null if not supported
   }
 
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const recognition = new SpeechRecognition();
-  recognition.continuous = true;
+  recognition.continuous = false; // Process after pause
   recognition.interimResults = true;
-  recognition.lang = language; // e.g. 'en-US', 'hi-IN', 'te-IN'
+  recognition.lang = language; // e.g., 'en-US', 'hi-IN', 'te-IN'
+
+  let finalTranscript = '';
 
   recognition.onresult = (event) => {
-    const transcript = Array.from(event.results)
-      .map(result => result[0])
-      .map(result => result.transcript)
-      .join('');
-    
-    onResult(transcript);
+    let interimTranscript = '';
+    for (let i = event.resultIndex; i < event.results.length; ++i) {
+      if (event.results[i].isFinal) {
+        finalTranscript += event.results[i][0].transcript;
+      } else {
+        interimTranscript += event.results[i][0].transcript;
+      }
+    }
+    onResult(finalTranscript || interimTranscript); // Send final or interim
   };
 
-  recognition.onend = onEnd;
-
-  return {
-    start: () => recognition.start(),
-    stop: () => recognition.stop()
+  recognition.onend = () => {
+      onEnd(finalTranscript); // Send final transcript on end
+      finalTranscript = ''; // Reset for next time
   };
+
+  recognition.onerror = (event) => {
+    console.error('Speech Recognition Error:', event.error);
+    onError(`Speech recognition error: ${event.error}`);
+  };
+
+  return recognition; // Return the recognition object
 };
 
-// Ollama Integration for LLM
-const callOllama = async (message, language) => {
+
+// --- OpenRouter API Integration ---
+// --- OpenRouter API Integration ---
+const callOpenRouter = async (message, language, messageHistory) => {
+  // Use import.meta.env for Vite environment variables
+  const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
+  const openRouterUrl = "https://openrouter.ai/api/v1/chat/completions";
+  const modelIdentifier = "mistralai/mistral-7b-instruct:free"; // Or your preferred Mixtral model
+
+  // Check if the API key is loaded correctly
+  if (!apiKey) {
+    console.error("OpenRouter API key (VITE_OPENROUTER_API_KEY) is missing or not loaded. Check your .env file and ensure the Vite server was restarted.");
+    // Provide a user-friendly message even if the key is missing configuration-wise
+     const voiceLanguage = getVoiceLanguageCode(language);
+     const missingKeyFallbacks = {
+        'en-US': "API key is not configured. Please contact the administrator.",
+        'hi-IN': "API कुंजी कॉन्फ़िगर नहीं है। कृपया व्यवस्थापक से संपर्क करें।",
+        'te-IN': "API కీ కాన్ఫిగర్ చేయబడలేదు. దయచేసి నిర్వాహకుడిని సంప్రదించండి."
+    };
+    return missingKeyFallbacks[voiceLanguage] || missingKeyFallbacks['en-US'];
+  }
+
+  // Default system prompt
+  const systemPrompt = `You are AgriverseAI CoPilot, an advanced agricultural assistant designed to help farmers, agricultural scientists, and gardeners.
+Focus on providing expert advice about crops, soil management, weather patterns, pest control, sustainable farming practices,
+agricultural equipment, and the latest research in agriculture. The user communicates in ${getLanguageName(language)}.
+Please respond concisely and accurately in the ${getLanguageName(language)} language.`;
+
+  // Prepare message history for the API call
+  const apiMessages = [
+    { role: "system", content: systemPrompt },
+    ...messageHistory.slice(-6).map(msg => ({
+        role: msg.sender === 'user' ? 'user' : 'assistant',
+        content: msg.content
+    })),
+    { role: "user", content: message }
+  ];
+
   try {
-    // Default system prompt to guide the model
-    const systemPrompt = `You are AgriverseAI CoPilot, an advanced agricultural assistant designed to help farmers, agricultural scientists, and gardeners. 
-Focus on providing expert advice about crops, soil management, weather patterns, pest control, sustainable farming practices, 
-agricultural equipment, and the latest research in agriculture. The user communicates in ${getLanguageName(language)}. 
-Please respond in ${getLanguageName(language)} language.`;
-    
-    // Format prompt for Ollama
-    const fullPrompt = `${systemPrompt}\n\nUser: ${message}\n\nAssistant:`;
-    
-    // Call the Ollama API (running locally or on your server)
-    const response = await fetch('http://localhost:11434/api/generate', {
+    const response = await fetch(openRouterUrl, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        // Set Referer based on your actual deployment URL or development environment
+        'HTTP-Referer': window.location.origin,
+        'X-Title': 'AgriverseAI CoPilot', // Your app's name
       },
       body: JSON.stringify({
-        model: 'llama2',  // or any other model you've downloaded
-        prompt: fullPrompt,
-        stream: false
+        model: modelIdentifier,
+        messages: apiMessages,
       })
     });
-    
+
     if (!response.ok) {
-      throw new Error(`Ollama API error: ${response.status}`);
+      const errorData = await response.json().catch(() => ({}));
+      console.error('OpenRouter API Error:', response.status, errorData);
+      throw new Error(`API error ${response.status}: ${errorData?.error?.message || response.statusText}`);
     }
-    
+
     const data = await response.json();
-    return data.response;
+
+    if (data.choices && data.choices.length > 0 && data.choices[0].message) {
+       return data.choices[0].message.content.trim();
+    } else {
+        console.error('Invalid response structure from OpenRouter:', data);
+        throw new Error("Received an invalid response from the AI.");
+    }
+
   } catch (error) {
-    console.error('Error calling Ollama:', error);
-    
-    // Fallback responses based on language
+    console.error('Error calling OpenRouter:', error);
+    const voiceLanguage = getVoiceLanguageCode(language);
     const fallbacks = {
-      'en-US': "I'm sorry, I couldn't connect to my knowledge base. Please check your Ollama server or try again later. For basic agricultural assistance, consider checking your local extension office resources.",
-      'hi-IN': "मुझे खेद है, मैं अपने ज्ञान आधार से कनेक्ट नहीं कर सका। कृपया अपने Ollama सर्वर की जांच करें या बाद में पुन: प्रयास करें। बुनियादी कृषि सहायता के लिए, अपने स्थानीय कृषि विस्तार कार्यालय के संसाधनों की जांच करें।",
-      'te-IN': "క్షమించండి, నేను నా నాలెడ్జ్ బేస్‌కి కనెక్ట్ చేయలేకపోయాను. దయచేసి మీ Ollama సర్వర్‌ని తనిఖీ చేయండి లేదా తర్వాత మళ్లీ ప్రయత్నించండి. ప్రాథమిక వ్యవసాయ సహాయం కోసం, మీ స్థానిక వ్యవసాయ విస్తరణ కార్యాలయ వనరులను తనిఖీ చేయడం పరిగణించండి."
+      'en-US': `I'm sorry, I encountered an issue connecting to the AI service (${error.message}). Please try again later.`,
+      'hi-IN': `मुझे खेद है, मुझे AI सेवा (${error.message}) से कनेक्ट करने में समस्या आई। कृपया बाद में पुन: प्रयास करें।`,
+      'te-IN': `క్షమించండి, నేను AI సేవకు (${error.message}) కనెక్ట్ చేయడంలో సమస్యను ఎదుర్కొన్నాను. దయచేసి తర్వాత మళ్లీ ప్రయత్నించండి.`
     };
-    
-    return fallbacks[language] || fallbacks['en-US'];
+    return fallbacks[voiceLanguage] || fallbacks['en-US'];
   }
 };
-
 // Helper function to get full language name from code
 const getLanguageName = (code) => {
-  const lang = languages.find(l => l.code === code.split('-')[0]);
+  const lang = languages.find(l => l.code === code); // Match directly with 'en', 'te', 'hi'
   return lang ? lang.name : 'English';
 };
 
-// Map language codes to voice recognition language codes
+// Map language codes to voice recognition/synthesis language codes
 const getVoiceLanguageCode = (code) => {
   const mapping = {
     'en': 'en-US',
     'hi': 'hi-IN',
     'te': 'te-IN'
   };
-  return mapping[code] || 'en-US';
+  return mapping[code] || 'en-US'; // Default to US English
 };
 
+
+// --- CoPilot Component ---
 const CoPilot = () => {
   // State
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [language, setLanguage] = useState('en');
+  const [language, setLanguage] = useState('en'); // Use 'en', 'te', 'hi'
   const [langMenuOpen, setLangMenuOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState('');
@@ -134,146 +187,188 @@ const CoPilot = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [processingQuery, setProcessingQuery] = useState(false);
-  const [ollamaStatus, setOllamaStatus] = useState('unknown'); // 'unknown', 'connected', 'disconnected'
-  
+  const [sttError, setSttError] = useState(null); // State for STT errors
+
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
-  const speechRecognition = useRef(null);
-  
-  // Check Ollama server status
-  const checkOllamaStatus = async () => {
-    try {
-      const response = await fetch('http://localhost:11434/api/version', {
-        method: 'GET'
-      });
-      
-      if (response.ok) {
-        setOllamaStatus('connected');
-        return true;
-      } else {
-        setOllamaStatus('disconnected');
-        return false;
-      }
-    } catch (error) {
-      console.error("Ollama server check failed:", error);
-      setOllamaStatus('disconnected');
-      return false;
-    }
-  };
-  
+  const recognitionRef = useRef(null); // Ref to store the recognition object
+  const synthRef = useRef(window.speechSynthesis); // Ref for speech synthesis
+
   // Authenticate user on component mount
   useEffect(() => {
-    const authenticateUser = async () => {
-      try {
-        // Try to get the current user
-        const auth = getAuth();
-        onAuthStateChanged(auth, async (currentUser) => {
-          if (!currentUser) {
-            // If no user is logged in, sign in anonymously
+    const authInstance = getAuth(); // Use getAuth()
+    const unsubscribeAuth = onAuthStateChanged(authInstance, async (currentUser) => {
+      if (!currentUser) {
+        console.log("No user found, signing in anonymously...");
+        try {
             const newUser = await signInUserAnonymously();
             setUser(newUser);
-          } else {
-            setUser(currentUser);
-          }
-          setLoading(false);
-        });
-      } catch (error) {
-        console.error("Authentication error:", error);
-        setLoading(false);
+        } catch (error) {
+            console.error("Anonymous sign-in error:", error);
+            // Handle sign-in error (e.g., show message to user)
+            setLoading(false);
+        }
+      } else {
+        console.log("User found:", currentUser.uid);
+        setUser(currentUser);
       }
-    };
-
-    authenticateUser();
-    checkOllamaStatus(); // Check Ollama status on load
-  }, []);
-
-  // Load message history from Firestore
-  useEffect(() => {
-    if (!user) return;
-
-    const messagesRef = collection(db, "users", user.uid, "messages");
-    const q = query(messagesRef, orderBy("timestamp", "asc"), limit(50));
-    
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const loadedMessages = [];
-      querySnapshot.forEach((doc) => {
-        loadedMessages.push({ id: doc.id, ...doc.data() });
-      });
-      setMessages(loadedMessages);
     });
 
-    return () => unsubscribe();
-  }, [user]);
+    return () => unsubscribeAuth(); // Cleanup auth listener
+  }, []);
+
+
+  // Load user data (preferences and messages) once user is authenticated
+  useEffect(() => {
+      if (!user) {
+          setLoading(false); // If user becomes null after initial load, stop loading
+          return;
+      }
+
+      setLoading(true); // Start loading when user object is available
+      let unsubscribeMessages = null;
+
+      const loadData = async () => {
+          try {
+              // Load preferences
+              const userData = await getUserData(); // Assuming getUserData fetches for the current user
+              if (userData && userData.preferences) {
+                  setLanguage(userData.preferences.language || 'en');
+                  setDarkMode(userData.preferences.darkMode || false);
+              }
+
+              // Load messages
+              const messagesRef = collection(db, "users", user.uid, "messages");
+              const q = query(messagesRef, orderBy("timestamp", "asc"), limit(50));
+
+              unsubscribeMessages = onSnapshot(q, (querySnapshot) => {
+                  const loadedMessages = [];
+                  querySnapshot.forEach((doc) => {
+                      // Ensure timestamp exists and convert if necessary
+                      const data = doc.data();
+                      let timestamp = data.timestamp;
+                      if (timestamp && typeof timestamp.toDate === 'function') {
+                          timestamp = timestamp.toDate().toISOString(); // Convert Firestore Timestamp to ISO string
+                      } else if (timestamp && typeof timestamp === 'string') {
+                          // Assume it's already an ISO string (or handle other formats)
+                      } else {
+                          timestamp = new Date().toISOString(); // Fallback timestamp
+                      }
+
+                      loadedMessages.push({ id: doc.id, ...data, timestamp });
+                  });
+                  setMessages(loadedMessages);
+                  setLoading(false); // Stop loading after messages are loaded
+              }, (error) => {
+                  console.error("Error loading messages:", error);
+                  setLoading(false); // Stop loading on error
+              });
+
+          } catch (error) {
+              console.error("Error loading user data:", error);
+              setLoading(false); // Stop loading on error
+          }
+      };
+
+      loadData();
+
+      // Cleanup Firestore listener
+      return () => {
+          if (unsubscribeMessages) {
+              unsubscribeMessages();
+          }
+      };
+  }, [user]); // Rerun when user changes
+
 
   // Auto-scroll to bottom of messages
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  // Setup speech recognition when language changes
+
+  // Setup speech recognition instance when component mounts or language changes
   useEffect(() => {
     const voiceLanguage = getVoiceLanguageCode(language);
-    
-    speechRecognition.current = setupSpeechRecognition(
+
+    // Cleanup previous instance if exists
+    if (recognitionRef.current) {
+        recognitionRef.current.stop();
+        recognitionRef.current = null;
+    }
+
+    recognitionRef.current = setupSpeechRecognition(
       voiceLanguage,
-      (transcript) => {
-        setInterimTranscript(transcript);
-        setInput(transcript);
+      (transcript) => { // onResult
+        setInterimTranscript(transcript); // Show interim results in UI
       },
-      () => {
+      (finalTranscript) => { // onEnd (provides final transcript)
         setIsListening(false);
-        if (interimTranscript.trim()) {
-          handleSend(interimTranscript);
-          setInterimTranscript('');
+        setInterimTranscript(''); // Clear interim
+        if (finalTranscript.trim()) {
+          setInput(finalTranscript); // Put final transcript in input box
+          handleSend(finalTranscript); // Send the final transcript
         }
+      },
+      (error) => { // onError
+          setSttError(error);
+          setIsListening(false); // Stop listening state on error
+          setInterimTranscript('');
       }
     );
 
+    // Cleanup function to stop recognition if component unmounts while listening
     return () => {
-      if (isListening && speechRecognition.current) {
-        speechRecognition.current.stop();
+      if (recognitionRef.current) {
+          recognitionRef.current.stop();
+      }
+      // Cancel any ongoing speech synthesis
+      if(synthRef.current) {
+          synthRef.current.cancel();
       }
     };
-  }, [language]);
+  }, [language]); // Re-setup when language changes
 
-  // Load user preferences
-  useEffect(() => {
-    const loadPreferences = async () => {
-      if (!user) return;
-      
-      try {
-        const userData = await getUserData();
-        if (userData && userData.preferences) {
-          setLanguage(userData.preferences.language || 'en');
-          setDarkMode(userData.preferences.darkMode || false);
-        }
-      } catch (error) {
-        console.error("Error loading preferences:", error);
-      }
-    };
 
-    loadPreferences();
-  }, [user]);
-
-  // Apply dark mode
+  // Apply dark mode class to body
   useEffect(() => {
     if (darkMode) {
       document.body.classList.add('dark-mode');
     } else {
       document.body.classList.remove('dark-mode');
     }
+    // Optional: Cleanup class on component unmount
+    // return () => document.body.classList.remove('dark-mode');
   }, [darkMode]);
+
 
   // Toggle speech recognition
   const toggleListening = () => {
+    if (!recognitionRef.current) {
+        setSttError("Speech recognition is not available.");
+        return;
+    }
+
     if (isListening) {
-      speechRecognition.current.stop();
+      recognitionRef.current.stop(); // Stop will trigger onEnd
       setIsListening(false);
     } else {
-      speechRecognition.current.start();
-      setIsListening(true);
+      setSttError(null); // Clear previous errors
+      setInput(''); // Clear input field when starting voice
+      setInterimTranscript('Listening...');
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+      } catch (error) {
+          // Catch potential errors on start (e.g., mic not available)
+          console.error("Error starting speech recognition:", error);
+          setSttError(`Could not start listening: ${error.message}`);
+          setIsListening(false);
+          setInterimTranscript('');
+      }
     }
   };
+
 
   // Scroll to bottom of chat
   const scrollToBottom = () => {
@@ -282,239 +377,227 @@ const CoPilot = () => {
 
   // Save message to Firestore
   const saveMessage = async (message) => {
-    if (!user) return;
+    if (!user) {
+        console.error("Cannot save message, user not authenticated.");
+        return; // Don't save if user is not available
+    }
 
     try {
       const messagesRef = collection(db, "users", user.uid, "messages");
       await addDoc(messagesRef, {
         ...message,
+        // Use Firestore server timestamp for reliable ordering
         timestamp: serverTimestamp()
       });
     } catch (error) {
-      console.error("Error saving message:", error);
+      console.error("Error saving message to Firestore:", error);
     }
   };
 
-  // Handle send message
-  const handleSend = async (text = null) => {
-    const messageText = text || input;
-    if (!messageText.trim()) return;
 
-    // Add user message
+  // Handle send message (triggered by button click, Enter key, or voice input end)
+  const handleSend = async (text = null) => {
+    const messageText = (text || input).trim(); // Use provided text (from voice) or current input value
+    if (!messageText || processingQuery) return; // Don't send empty or while processing
+
+    // Optimistically add user message to UI
     const userMessage = {
       content: messageText,
       sender: 'user',
+      // Use client-side timestamp for immediate display, Firestore timestamp for storage
       timestamp: new Date().toISOString()
     };
-    
     setMessages(prev => [...prev, userMessage]);
-    saveMessage(userMessage);
-    setInput('');
+    saveMessage(userMessage); // Save to Firestore (includes server timestamp)
+    setInput(''); // Clear input field
     setInterimTranscript('');
-    setProcessingQuery(true);
+    setProcessingQuery(true); // Set processing state
 
-    // Check Ollama status before making the request
-    const isOllamaAvailable = await checkOllamaStatus();
 
-    // Get response from LLM
+    // Get AI response from OpenRouter
     try {
-      const voiceLanguage = getVoiceLanguageCode(language);
-      let response;
-      
-      if (isOllamaAvailable) {
-        response = await callOllama(messageText, voiceLanguage);
-      } else {
-        // Fallback response if Ollama is not available
-        const fallbacks = {
-          'en-US': "I can't connect to the Ollama server. Please make sure it's running and try again.",
-          'hi-IN': "मैं Ollama सर्वर से कनेक्ट नहीं कर सकता। कृपया सुनिश्चित करें कि यह चल रहा है और फिर से प्रयास करें।",
-          'te-IN': "నేను Ollama సర్వర్‌కి కనెక్ట్ చేయలేను. దయచేసి అది నడుస్తున్నట్లు నిర్ధారించుకొని మళ్లీ ప్రయత్నించండి."
-        };
-        response = fallbacks[voiceLanguage] || fallbacks['en-US'];
-      }
-      
-      // Add AI response
+      // Pass the current language and message history
+      const response = await callOpenRouter(messageText, language, messages);
+
+      // Add AI response to UI
       const aiMessage = {
         content: response,
         sender: 'ai',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString() // Client-side timestamp for UI
       };
-      
       setMessages(prev => [...prev, aiMessage]);
-      saveMessage(aiMessage);
-      
-      // Speak response if needed
+      saveMessage(aiMessage); // Save AI message to Firestore
+
+      // Speak response if enabled
       if (isSpeaking) {
-        synthesizeSpeech(response, voiceLanguage);
+          const voiceLanguage = getVoiceLanguageCode(language);
+          await synthesizeSpeech(response, voiceLanguage);
       }
+
     } catch (error) {
-      console.error("Error processing message:", error);
-      
-      // Add error message
+      // Error handling is mostly done within callOpenRouter, but catch any unexpected errors here
+      console.error("Error in handleSend after API call:", error);
+       // Add error message to UI
       const errorMessage = {
-        content: "I'm sorry, there was an error processing your request.",
+        content: "An unexpected error occurred while processing your request.",
         sender: 'ai',
         timestamp: new Date().toISOString()
       };
-      
       setMessages(prev => [...prev, errorMessage]);
-      saveMessage(errorMessage);
+      saveMessage(errorMessage); // Optionally save error message
+
     } finally {
-      setProcessingQuery(false);
+      setProcessingQuery(false); // Reset processing state
     }
   };
 
-  // Toggle speech
+
+  // Toggle speech synthesis output
   const toggleSpeech = () => {
-    setIsSpeaking(!isSpeaking);
+      const newSpeakingState = !isSpeaking;
+      setIsSpeaking(newSpeakingState);
+      if (!newSpeakingState && synthRef.current) {
+          // If turning speech off, stop any current speech
+          synthRef.current.cancel();
+      }
   };
 
-  // Toggle language menu
+  // Toggle language menu visibility
   const toggleLangMenu = () => {
     setLangMenuOpen(!langMenuOpen);
   };
 
-  // Change language
+  // Change UI language and save preference
   const changeLanguage = (code) => {
     setLanguage(code);
     setLangMenuOpen(false);
-    
-    // Save preference to user profile
+
+    // Save preference to user profile in Firestore
     if (user) {
       try {
         const userRef = doc(db, "users", user.uid);
+        // Use updateDoc for merging, setDoc would overwrite
         updateDoc(userRef, {
           "preferences.language": code
-        });
+        }).catch(err => console.error("Error saving language preference:", err));
       } catch (error) {
-        console.error("Error saving language preference:", error);
+        console.error("Error accessing userRef for language preference:", error);
       }
     }
   };
 
-  // Toggle dark mode
+
+  // Toggle dark mode and save preference
   const toggleDarkMode = () => {
     const newMode = !darkMode;
     setDarkMode(newMode);
-    
+
     // Save preference to user profile
     if (user) {
       try {
         const userRef = doc(db, "users", user.uid);
         updateDoc(userRef, {
           "preferences.darkMode": newMode
-        });
+        }).catch(err => console.error("Error saving dark mode preference:", err));
       } catch (error) {
-        console.error("Error saving dark mode preference:", error);
+        console.error("Error accessing userRef for dark mode preference:", error);
       }
     }
   };
 
-  // Toggle sidebar
+  // Toggle sidebar visibility
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
   };
 
-  // Manually check Ollama status
-  const handleCheckOllamaStatus = async () => {
-    await checkOllamaStatus();
-  };
+  // --- Render Logic ---
 
+  // Loading state
   if (loading) {
     return (
       <div className="copilot-loading">
-        <RefreshCw className="loading-icon spin" />
+        <RefreshCw className="loading-icon spin" size={48} />
         <p>Loading AgriverseAI CoPilot...</p>
       </div>
     );
   }
 
+  // Main component structure
   return (
     <div className={`copilot-container ${darkMode ? 'dark-mode' : ''}`}>
       {/* Header */}
       <header className="copilot-header">
         <div className="header-left">
-          <button className="icon-button" onClick={toggleSidebar}>
+          <button className="icon-button" onClick={toggleSidebar} aria-label="Open settings menu">
             <Menu />
           </button>
           <h1>AgriverseAI CoPilot</h1>
-          <div className={`ollama-status ${ollamaStatus}`}>
-            {ollamaStatus === 'connected' ? 'Ollama: Connected' : 
-             ollamaStatus === 'disconnected' ? 'Ollama: Disconnected' : 'Ollama: Checking...'}
-          </div>
+          {/* Removed Ollama Status */}
         </div>
         <div className="header-actions">
-          <button 
-            className={`icon-button ${isSpeaking ? 'active' : ''}`} 
-            onClick={toggleSpeech} 
-            title={isSpeaking ? "Mute voice" : "Enable voice"}
+          <button
+            className={`icon-button ${isSpeaking ? 'active' : ''}`}
+            onClick={toggleSpeech}
+            title={isSpeaking ? "Mute voice output" : "Enable voice output"}
+            aria-pressed={isSpeaking}
           >
             {isSpeaking ? <Volume2 /> : <VolumeX />}
           </button>
-          <button 
-            className="icon-button" 
-            onClick={toggleLangMenu} 
-            title="Change language"
-          >
-            <Globe />
-          </button>
-          <button 
-            className="icon-button" 
-            onClick={toggleDarkMode} 
-            title={darkMode ? "Light mode" : "Dark mode"}
+          <div className="language-selector-container"> {/* Wrapper for positioning */}
+            <button
+              className="icon-button"
+              onClick={toggleLangMenu}
+              title="Change language"
+              aria-haspopup="true"
+              aria-expanded={langMenuOpen}
+            >
+              <Globe />
+            </button>
+            {/* Language Menu */}
+            {langMenuOpen && (
+                <div className="language-menu" role="menu">
+                {languages.map((lang) => (
+                    <button
+                    key={lang.code}
+                    role="menuitem"
+                    className={language === lang.code ? 'active' : ''}
+                    onClick={() => changeLanguage(lang.code)}
+                    >
+                    {lang.name}
+                    </button>
+                ))}
+                </div>
+            )}
+          </div>
+          <button
+            className="icon-button"
+            onClick={toggleDarkMode}
+            title={darkMode ? "Switch to Light mode" : "Switch to Dark mode"}
+            aria-pressed={darkMode}
           >
             {darkMode ? <Sun /> : <Moon />}
           </button>
         </div>
       </header>
 
-      {/* Language Menu */}
-      {langMenuOpen && (
-        <div className="language-menu">
-          {languages.map((lang) => (
-            <button 
-              key={lang.code} 
-              className={language === lang.code ? 'active' : ''}
-              onClick={() => changeLanguage(lang.code)}
-            >
-              {lang.name}
-            </button>
-          ))}
-        </div>
-      )}
-
       {/* Sidebar */}
-      <div className={`copilot-sidebar ${sidebarOpen ? 'open' : ''}`}>
+      <aside className={`copilot-sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <h2>Settings</h2>
-          <button className="icon-button" onClick={toggleSidebar}>
+          <button className="icon-button" onClick={toggleSidebar} aria-label="Close settings menu">
             <X />
           </button>
         </div>
         <div className="sidebar-content">
-          <div className="sidebar-section">
-            <h3>Ollama Status</h3>
-            <div className="setting-row">
-              <span>Status</span>
-              <span className={`status-indicator ${ollamaStatus}`}>
-                {ollamaStatus === 'connected' ? 'Connected' : 
-                 ollamaStatus === 'disconnected' ? 'Disconnected' : 'Unknown'}
-              </span>
-            </div>
-            <button 
-              className="check-ollama-button"
-              onClick={handleCheckOllamaStatus}
-            >
-              Check Status
-            </button>
-          </div>
+          {/* Removed Ollama Status Section */}
           <div className="sidebar-section">
             <h3>Voice Settings</h3>
             <div className="setting-row">
               <span>Voice Output</span>
-              <button 
+              <button
                 className={`toggle-button ${isSpeaking ? 'active' : ''}`}
                 onClick={toggleSpeech}
+                aria-pressed={isSpeaking}
               >
                 {isSpeaking ? 'On' : 'Off'}
               </button>
@@ -524,9 +607,10 @@ const CoPilot = () => {
             <h3>Appearance</h3>
             <div className="setting-row">
               <span>Dark Mode</span>
-              <button 
+              <button
                 className={`toggle-button ${darkMode ? 'active' : ''}`}
                 onClick={toggleDarkMode}
+                 aria-pressed={darkMode}
               >
                 {darkMode ? 'On' : 'Off'}
               </button>
@@ -536,10 +620,11 @@ const CoPilot = () => {
             <h3>Language</h3>
             <div className="setting-languages">
               {languages.map((lang) => (
-                <button 
-                  key={lang.code} 
+                <button
+                  key={lang.code}
                   className={language === lang.code ? 'lang-button active' : 'lang-button'}
                   onClick={() => changeLanguage(lang.code)}
+                  aria-pressed={language === lang.code}
                 >
                   {lang.name}
                 </button>
@@ -547,92 +632,96 @@ const CoPilot = () => {
             </div>
           </div>
         </div>
-      </div>
+      </aside>
 
-      {/* Messages */}
-      <div className="copilot-messages">
-        {messages.length === 0 ? (
+      {/* Messages Area */}
+      <main className="copilot-messages">
+        {messages.length === 0 && !processingQuery ? (
           <div className="empty-state">
             <div className="welcome-message">
               <h2>Welcome to AgriverseAI CoPilot</h2>
-              <p>Your agricultural assistant is ready to help. Ask me anything about farming, crops, soil, weather, or agricultural practices.</p>
-              {ollamaStatus === 'disconnected' && (
-                <div className="ollama-warning">
-                  <p>⚠️ Ollama server is not connected. Please start the Ollama server to enable full functionality.</p>
-                  <button onClick={handleCheckOllamaStatus}>Check Connection</button>
-                </div>
-              )}
+              <p>Ask me anything about farming, crops, soil, weather, or agricultural practices.</p>
+              {/* Removed Ollama warning */}
             </div>
           </div>
         ) : (
           messages.map((message, index) => (
-            <div 
-              key={message.id || index} 
-              className={`message ${message.sender}`}
+            <div
+              key={message.id || `msg-${index}`} // Use Firestore ID if available, otherwise fallback
+              className={`message ${message.sender}`} // 'user' or 'ai'
             >
               <div className="message-bubble">
+                {/* Basic Markdown rendering (bold/italics) could be added here if needed */}
                 <p>{message.content}</p>
               </div>
               <div className="message-time">
-                {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                 {/* Format timestamp nicely */}
+                 {message.timestamp ? new Date(message.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true }) : ''}
               </div>
             </div>
           ))
         )}
+        {/* Typing indicator shown when processingQuery is true */}
         {processingQuery && (
           <div className="message ai typing">
             <div className="message-bubble">
               <div className="typing-indicator">
-                <span></span>
-                <span></span>
-                <span></span>
+                <span></span><span></span><span></span>
               </div>
             </div>
           </div>
         )}
+        {/* Invisible div to target for scrolling */}
         <div ref={messagesEndRef} />
-      </div>
+      </main>
 
-      {/* Input */}
-      <div className="copilot-input">
-        <input
-          ref={inputRef}
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-          placeholder="Type your message here..."
-          disabled={isListening}
-        />
-        <button 
-          className={`icon-button mic-button ${isListening ? 'active' : ''}`} 
-          onClick={toggleListening}
-          disabled={processingQuery}
-        >
-          {isListening ? <MicOff /> : <Mic />}
-        </button>
-        <button 
-          className="icon-button send-button" 
-          onClick={() => handleSend()}
-          disabled={!input.trim() || processingQuery}
-        >
-          <Send />
-        </button>
-      </div>
+      {/* Input Area */}
+      <footer className="copilot-input-area">
+          {/* STT Error Display */}
+          {sttError && <div className="stt-error-message" role="alert">{sttError}</div>}
 
-      {/* Voice feedback */}
-      {isListening && (
-        <div className="voice-feedback">
-          <div className="voice-waves">
-            <span></span>
-            <span></span>
-            <span></span>
-            <span></span>
-            <span></span>
+          <div className="copilot-input">
+              <input
+              ref={inputRef}
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={(e) => {if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }}} // Send on Enter, allow Shift+Enter for newline
+              placeholder={isListening ? "Listening..." : "Type your message or use the mic..."}
+              disabled={processingQuery} // Disable input while AI is responding
+              aria-label="Message input"
+              />
+              <button
+              className={`icon-button mic-button ${isListening ? 'active' : ''}`}
+              onClick={toggleListening}
+              disabled={processingQuery} // Disable mic while AI is responding
+              title={isListening ? "Stop listening" : "Start listening"}
+              aria-pressed={isListening}
+              >
+              {isListening ? <MicOff /> : <Mic />}
+              </button>
+              <button
+              className="icon-button send-button"
+              onClick={() => handleSend()}
+              disabled={!input.trim() || processingQuery || isListening} // Disable send if input empty, processing, or listening
+              title="Send message"
+              aria-label="Send message"
+              >
+              <Send />
+              </button>
           </div>
-          <p className="transcript">{interimTranscript || "Listening..."}</p>
-        </div>
-      )}
+
+          {/* Voice listening feedback */}
+          {isListening && (
+              <div className="voice-feedback">
+              <div className="voice-waves"> {/* Simple animation */}
+                  <span></span><span></span><span></span><span></span><span></span>
+              </div>
+              {/* Show interim transcript while listening */}
+              <p className="transcript" aria-live="polite">{interimTranscript || " "}</p>
+              </div>
+          )}
+      </footer>
     </div>
   );
 };

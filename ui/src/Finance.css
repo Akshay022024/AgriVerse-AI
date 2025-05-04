@@ -1,0 +1,251 @@
+.finance-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #333;
+  }
+  
+  .finance-container h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 24px;
+    color: #2c3e50;
+    text-align: center;
+  }
+  
+  .finance-container h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 32px 0 20px;
+    color: #2c3e50;
+  }
+  
+  .finance-container h3 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: #2c3e50;
+  }
+  
+  /* Loading and error states */
+  .finance-loading,
+  .finance-error,
+  .insights-loading,
+  .insights-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    text-align: center;
+  }
+  
+  .spinner {
+    animation: spin 1s linear infinite;
+    margin-bottom: 16px;
+    color: #4CAF50;
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  
+  .error-icon,
+  .info-icon {
+    margin-bottom: 16px;
+    color: #F44336;
+  }
+  
+  .info-icon {
+    color: #2196F3;
+  }
+  
+  /* Metrics cards grid */
+  .finance-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  
+  .metric-card {
+    background-color: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  
+  .metric-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  }
+  
+  .metric-card.highlight {
+    background-color: #f8fbf8;
+    border-left: 4px solid #4CAF50;
+  }
+  
+  .metric-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  
+  .metric-row:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+  
+  .metric-label {
+    font-weight: 500;
+    color: #666;
+  }
+  
+  .metric-value {
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  
+  .metric-value.positive {
+    color: #4CAF50;
+  }
+  
+  .metric-value.negative {
+    color: #F44336;
+  }
+  
+  .trend-icon {
+    width: 16px;
+    height: 16px;
+  }
+  
+  /* Charts section */
+  .finance-charts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 24px;
+    margin-bottom: 32px;
+  }
+  
+  .chart-container {
+    background-color: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    height: 320px;
+  }
+  
+  .chart-container h3 {
+    text-align: center;
+    margin-bottom: 8px;
+    font-size: 1rem;
+  }
+  
+  /* Insights section */
+  .insights-section {
+    margin: 40px 0;
+  }
+  
+  .insights-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+  }
+  
+  .insight-card {
+    background-color: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
+  
+  .insight-card h3 {
+    font-size: 1.1rem;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  
+  .insight-card ul {
+    padding-left: 20px;
+    margin: 0;
+  }
+  
+  .insight-card li {
+    margin-bottom: 8px;
+    line-height: 1.5;
+  }
+  
+  .insight-card li:last-child {
+    margin-bottom: 0;
+  }
+  
+  /* Footer */
+  .finance-footer {
+    margin-top: 40px;
+    padding: 16px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    text-align: center;
+    font-size: 0.9rem;
+    color: #666;
+  }
+  
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    .finance-metrics,
+    .finance-charts,
+    .insights-grid {
+      grid-template-columns: 1fr;
+    }
+    
+    .chart-container {
+      height: 280px;
+    }
+  }
+  
+  /* Tooltip styles */
+  .recharts-tooltip-wrapper .recharts-default-tooltip {
+    background-color: rgba(255, 255, 255, 0.95) !important;
+    border: 1px solid #e0e0e0 !important;
+    border-radius: 4px !important;
+    padding: 10px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+  }
+  
+  .recharts-tooltip-label {
+    font-weight: 600 !important;
+    margin-bottom: 5px !important;
+  }
+  
+  /* Animation for insights appearing */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  .insights-grid {
+    animation: fadeIn 0.5s ease-out forwards;
+  }
+  
+  .insight-card {
+    animation: fadeIn 0.5s ease-out forwards;
+    animation-delay: calc(var(--index, 0) * 0.1s);
+  }
+  
+  .insight-card:nth-child(1) { --index: 1; }
+  .insight-card:nth-child(2) { --index: 2; }
+  .insight-card:nth-child(3) { --index: 3; }
+  .insight-card:nth-child(4) { --index: 4; }

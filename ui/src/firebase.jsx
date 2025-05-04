@@ -58,26 +58,55 @@ export const updateUserProfile = async (displayName) => {
 };
 
 // Save user data to Firestore - Simplified version
+// Save user data to Firestore - Enhanced with better error handling and logging
 export const saveUserData = async (userData) => {
   try {
     const user = auth.currentUser;
     if (!user) throw new Error("No authenticated user found");
 
-    // Data should already be prepared by 'prepareDataForFirebase' in UserOnboarding.jsx
-    const dataToSave = { ...userData }; // Use the already prepared data
-
+    // Make a deep copy to avoid mutation issues
+    const dataToSave = JSON.parse(JSON.stringify(userData));
+    
     // Add/update timestamp
     dataToSave.updatedAt = new Date().toISOString();
+    
+    // Debug log of boundary data before saving
+    if (dataToSave.farmBoundary) {
+      console.log("Saving farmBoundary to Firestore:", 
+        typeof dataToSave.farmBoundary === 'string' 
+          ? dataToSave.farmBoundary.substring(0, 50) + '...' 
+          : 'Object (will be stringified)');
+    }
 
-    // Use merge: true to avoid overwriting fields unintentionally if needed,
-    // or set merge: false / remove it if you intend to replace the entire document.
+    // Make absolutely sure farmBoundary is a string before saving
+    if (dataToSave.farmBoundary && typeof dataToSave.farmBoundary !== 'string') {
+      try {
+        dataToSave.farmBoundary = JSON.stringify(dataToSave.farmBoundary);
+      } catch (stringifyError) {
+        console.error("Error stringifying farmBoundary:", stringifyError);
+        // Remove problematic field rather than failing the entire save
+        delete dataToSave.farmBoundary;
+      }
+    }
+
+    // Save to Firestore with merge to preserve any fields not included in this update
     await setDoc(doc(db, "users", user.uid), dataToSave, { merge: true });
     console.log("User data saved successfully for user:", user.uid);
+    
     return true;
   } catch (error) {
-    // Log the data that failed to save for easier debugging
+    // Enhanced error logging
     console.error("Error saving user data in firebase.jsx:", error);
-    console.error("Data that failed:", JSON.stringify(userData, null, 2)); // Stringify for better readability
+    if (userData && userData.farmBoundary) {
+      console.error("farmBoundary type:", typeof userData.farmBoundary);
+      if (typeof userData.farmBoundary === 'object') {
+        console.error("farmBoundary structure:", JSON.stringify({
+          type: userData.farmBoundary.type,
+          hasGeometry: !!userData.farmBoundary.geometry,
+          hasCoordinates: !!(userData.farmBoundary.geometry && userData.farmBoundary.geometry.coordinates)
+        }));
+      }
+    }
     throw error; // Re-throw the error to be caught by handleSubmit
   }
 };
@@ -85,47 +114,64 @@ export const saveUserData = async (userData) => {
 
 // Get user data from Firestore
 // Get user data from Firestore with improved boundary parsing
+// Get user data from Firestore with robust boundary parsing
+// Get user data from Firestore with robust boundary parsing
 export const getUserData = async () => {
   try {
     const user = auth.currentUser;
     if (!user) throw new Error("No authenticated user found");
-
     const docSnap = await getDoc(doc(db, "users", user.uid));
     if (docSnap.exists()) {
       const fetchedData = docSnap.data();
       
-      // --- IMPORTANT: Parse farmBoundary if it exists ---
-      if (fetchedData && typeof fetchedData.farmBoundary === 'string' && fetchedData.farmBoundary.trim() !== '') {
-        try {
-          const parsedBoundary = JSON.parse(fetchedData.farmBoundary);
-          
-          // Validate that it's a proper GeoJSON Feature
-          if (parsedBoundary && 
-              parsedBoundary.type === 'Feature' && 
-              parsedBoundary.geometry && 
-              parsedBoundary.geometry.coordinates) {
+      // --- Enhanced farmBoundary parsing logic ---
+      if (fetchedData && typeof fetchedData.farmBoundary === 'string') {
+        if (fetchedData.farmBoundary.trim() !== '') {
+          try {
+            console.log("Attempting to parse farmBoundary string from Firestore");
+            const parsedBoundary = JSON.parse(fetchedData.farmBoundary);
             
-            fetchedData.farmBoundary = parsedBoundary;
-            console.log("Successfully parsed farmBoundary from Firestore string.");
-          } else {
-            console.warn("Parsed farmBoundary is not a valid GeoJSON Feature:", parsedBoundary);
-            fetchedData.farmBoundary = null;
+            // Validate that it's a proper GeoJSON Feature
+            if (parsedBoundary && 
+                parsedBoundary.type === 'Feature' && 
+                parsedBoundary.geometry && 
+                parsedBoundary.geometry.coordinates) {
+              
+              fetchedData.farmBoundary = parsedBoundary;
+              console.log("Successfully parsed farmBoundary from Firestore");
+            } else {
+              console.warn("Parsed farmBoundary is not a valid GeoJSON Feature:", 
+                          JSON.stringify(parsedBoundary).substring(0, 200));
+              fetchedData.farmBoundary = null;
+            }
+          } catch (e) {
+            console.error("Error parsing farmBoundary JSON from Firestore:", e);
+            console.error("Invalid JSON sample:", 
+                        fetchedData.farmBoundary.substring(0, 100));
+            fetchedData.farmBoundary = null; // Handle invalid JSON
           }
-        } catch (e) {
-          console.error("Error parsing farmBoundary JSON from Firestore:", e);
-          fetchedData.farmBoundary = null; // Handle invalid JSON
+        } else {
+          // Handle empty string boundary
+          console.warn("farmBoundary exists but is an empty string. Setting to null.");
+          fetchedData.farmBoundary = null;
         }
-      } else if (fetchedData && fetchedData.farmBoundary === '') {
-        // Handle empty string boundary (could happen with old data)
-        console.warn("farmBoundary exists but is an empty string. Setting to null.");
+      } else if (fetchedData && fetchedData.farmBoundary === null) {
+        // Keep null as null
+        console.log("farmBoundary is explicitly null in Firestore");
+      } else if (fetchedData && fetchedData.farmBoundary !== undefined) {
+        // Handle unexpected type
+        console.warn("farmBoundary exists in Firestore but is not a string:", 
+                    typeof fetchedData.farmBoundary);
         fetchedData.farmBoundary = null;
       }
-      // --- End Parsing Logic ---
+      // --- End farmBoundary parsing logic ---
       
       // Convert Firestore map objects back to arrays for UI display
-      const mapKeysToConvert = ['waterSources', 'cropTypes', 'learningGoals', 'trackingGoals', 'currentCrops'];
+      const mapKeysToConvert = ['waterSources', 'cropTypes', 'learningGoals', 
+                               'trackingGoals', 'currentCrops', 'mainInterests'];
       mapKeysToConvert.forEach(key => {
-        if (fetchedData[key] && typeof fetchedData[key] === 'object' && !Array.isArray(fetchedData[key])) {
+        if (fetchedData[key] && typeof fetchedData[key] === 'object' && 
+            !Array.isArray(fetchedData[key])) {
           // Convert map back to array
           const array = [];
           const map = fetchedData[key];
@@ -144,7 +190,7 @@ export const getUserData = async () => {
           });
           
           fetchedData[key] = array;
-          console.log(`Converted map '${key}' back to array:`, array);
+          console.log(`Converted map '${key}' back to array with ${array.length} items`);
         } else if (!fetchedData[key]) {
           // Handle missing keys - initialize as empty array for consistency
           fetchedData[key] = [];
@@ -158,10 +204,9 @@ export const getUserData = async () => {
     }
   } catch (error) {
     console.error("Error fetching user data:", error);
-    throw error;
+    throw error;  // Re-throw the error so calling function can handle it
   }
 };
-
 // Listen to auth state changes
 export const onAuthStateChange = (callback) => {
   return onAuthStateChanged(auth, callback);

@@ -1,194 +1,543 @@
-/* --- Base Styles & Variables --- */
-:root {
-  --primary-color: #348e38; /* Deep Green */
-  --primary-dark: #2a6e2e;
-  --primary-light: #7ebc70; /* Lighter Green */
-  --accent-color: #f0c05a; /* Gold/Yellow */
-  --secondary-accent: #a0522d; /* Sienna/Brown */
-  --text-color: #333333;
-  --text-light: #555555;
-  --bg-color: #f8fbf7; /* Very light green tint */
-  --card-bg: #ffffff;
-  --card-shadow: 0 4px 15px rgba(0, 0, 0, 0.07);
-  --card-border: 1px solid #e8e8e8;
-  /* Water Need Colors */
-  --water-need-low-bg: #eaf2f8; /* Light blue background */
-  --water-need-low-text: #3498db; /* Blue text */
-  --water-need-medium-bg: #e8f8f5; /* Light green background */
-  --water-need-medium-text: #2ecc71; /* Green text */
-  --water-need-high-bg: #fef5e7; /* Light orange background */
-  --water-need-high-text: #f39c12; /* Orange text */
-  --border-radius: 10px;
-  --transition: all 0.25s ease-in-out;
-}
+/* VirtualFarmTwin.css - Styling for AgriVerse Farm Twin Component */
 
+/* === Core Layout & Responsive Design === */
 .agri-app {
-  font-family: 'Roboto', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  color: var(--text-color);
-  background-color: var(--bg-color);
-  line-height: 1.6;
-  min-height: 100vh;
   display: flex;
   flex-direction: column;
+  height: 100%;
+  min-height: 100vh;
+  background-color: #f7f9f4;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: #333;
 }
 
-/* --- Header --- */
+.main-content {
+  display: flex;
+  flex: 1;
+  padding: 0.5rem;
+  gap: 1rem;
+  min-height: 0;
+}
+
+.left-panel, .right-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  overflow-y: auto;
+}
+
+.left-panel {
+  flex: 0 0 360px;
+}
+
+.right-panel {
+  flex: 1;
+}
+
+/* === Header & Navigation === */
 .app-header {
-  background: var(--primary-color);
-  color: white;
-  padding: 0.8rem 1.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  position: sticky; top: 0; z-index: 1000;
+  padding: 0.75rem 1.5rem;
+  background-color: #2a6b34;
+  color: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
-.logo-section h1 { margin: 0; font-size: 1.4rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.menu-toggle { background: transparent; border: none; color: white; font-size: 1.6rem; cursor: pointer; padding: 0.4rem; border-radius: 50%; transition: var(--transition); }
-.menu-toggle:hover { background-color: rgba(255, 255, 255, 0.15); }
-.nav-menu-container { position: relative; }
-.nav-menu { position: absolute; top: 100%; right: 0; background-color: white; border-radius: 0 0 var(--border-radius) var(--border-radius); box-shadow: 0 8px 16px rgba(0,0,0,0.15); min-width: 240px; z-index: 1001; border: 1px solid #ddd; border-top: none; }
-.nav-menu ul { list-style: none; padding: 0.5rem 0; margin: 0; }
-.nav-menu ul li button { display: block; width: 100%; padding: 0.8rem 1.2rem; background: none; border: none; color: var(--text-color); text-align: left; font-size: 0.95rem; font-family: inherit; cursor: pointer; transition: var(--transition); }
-.nav-menu ul li button:hover { background-color: #f5f5f5; color: var(--primary-dark); }
 
-/* --- Main Layout --- */
-.main-content { display: flex; flex-wrap: wrap; gap: 1.5rem; padding: 1.5rem; flex: 1; max-width: 1500px; margin: 0 auto; width: 100%; }
-.left-panel { flex: 1 1 380px; max-width: 450px; display: flex; flex-direction: column; gap: 1.5rem; } /* Max width for left panel */
-.right-panel { flex: 1.8 1 450px; display: flex; flex-direction: column; gap: 1.5rem; } /* Right panel flexible, min width */
-
-/* --- Cards --- */
-.card { background-color: var(--card-bg); border-radius: var(--border-radius); box-shadow: var(--card-shadow); padding: 1.5rem; border: var(--card-border); transition: var(--transition); }
-.card:hover { box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1); transform: translateY(-2px); }
-.card h3 { margin-top: 0; margin-bottom: 1.2rem; font-size: 1.15rem; color: var(--primary-dark); border-bottom: 2px solid var(--primary-light); padding-bottom: 0.6rem; display: flex; align-items: center; gap: 0.6rem; font-weight: 600; }
-.card h4 { margin: 0 0 0.3rem; font-size: 0.95rem; color: var(--primary-dark); font-weight: 600; }
-
-/* --- Farm Info & Details --- */
-.farm-details { display: flex; flex-direction: column; gap: 0.6rem; }
-.detail-item { display: flex; align-items: flex-start; padding: 0.5rem 0; border-bottom: 1px dashed #f0f0f0; gap: 0.8rem; }
-.detail-item:last-child { border-bottom: none; }
-.detail-icon { font-size: 1.3rem; color: var(--primary-color); margin-top: 1px; flex-shrink: 0; width: 22px; text-align: center; }
-.detail-item div { flex-grow: 1; }
-.detail-item p { margin: 0; color: var(--text-light); font-size: 0.9rem; word-break: break-word; }
-.detail-item p[title] { cursor: help; border-bottom: 1px dotted #ccc; } /* Style for title attribute */
-
-/* Water Need Styling */
-.water-need .detail-icon { color: #27ae60; } /* Specific icon color */
-.water-need p { font-weight: 600; padding: 3px 8px; border-radius: var(--border-radius); display: inline-block; font-size: 0.85rem; border: 1px solid transparent; }
-.water-need-low { background-color: var(--water-need-low-bg); color: var(--water-need-low-text); border-color: var(--water-need-low-text); }
-.water-need-medium { background-color: var(--water-need-medium-bg); color: var(--water-need-medium-text); border-color: var(--water-need-medium-text); }
-.water-need-high { background-color: var(--water-need-high-bg); color: var(--water-need-high-text); border-color: var(--water-need-high-text); }
-
-.track-indicator .detail-icon { color: var(--secondary-accent); }
-.track-indicator p { font-weight: 500; text-transform: capitalize; }
-
-/* Goal List Styles */
-.goal-list { list-style: none; padding-left: 0; margin: 0.5rem 0 0; }
-.goal-list li { margin-bottom: 0.4rem; font-size: 0.9rem; color: var(--text-light); display: flex; align-items: center; gap: 0.5rem; }
-.goal-list.nested { padding-left: 1rem; margin-top: 0.2rem;} /* Style for nested lists */
-.goal-list.nested li { font-size: 0.85rem; }
-
-/* --- Loading & Error States --- */
-.loading-fullpage, .error-fullpage { display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 80vh; text-align: center; padding: 2rem; background-color: var(--bg-color); }
-.loading-fullpage .spinner { border: 5px solid rgba(126, 188, 112, 0.2); border-radius: 50%; border-top-color: var(--primary-color); width: 60px; height: 60px; animation: spin 1s linear infinite; margin-bottom: 1.5rem; }
-.loading-fullpage p { font-size: 1.1rem; color: var(--text-light); }
-.error-fullpage h2 { color: var(--error-color); margin-bottom: 1rem; font-size: 1.5rem; }
-.error-fullpage p { font-size: 1rem; color: var(--text-light); margin-bottom: 1.5rem; max-width: 500px; }
-.error-fullpage button.retry-button { background-color: var(--primary-color); color: white; border: none; padding: 0.8rem 1.5rem; border-radius: var(--border-radius); cursor: pointer; font-size: 1rem; transition: var(--transition); }
-.error-fullpage button.retry-button:hover { background-color: var(--primary-dark); }
-@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-/* --- Input Card --- */
-.form-group { margin-bottom: 1rem; }
-.form-group label { display: block; margin-bottom: 0.4rem; font-weight: 500; font-size: 0.9rem; color: var(--primary-dark); }
-.form-input, .form-textarea { width: 100%; padding: 0.8rem 1rem; border: 1px solid #ccc; border-radius: var(--border-radius); font-size: 1rem; font-family: inherit; box-sizing: border-box; outline: none; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
-.form-textarea { resize: vertical; min-height: 75px; }
-.form-input:focus, .form-textarea:focus { border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(52, 142, 56, 0.15); }
-.form-group small { display: block; margin-top: 0.4rem; font-size: 0.8rem; color: var(--text-light); line-height: 1.3; }
-.ask-button { background-color: var(--primary-color); color: white; border: none; padding: 0.8rem 1.8rem; border-radius: var(--border-radius); cursor: pointer; font-weight: 500; display: block; width: fit-content; margin: 1rem auto 0; transition: var(--transition); box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); font-size: 1rem; }
-.ask-button:hover { background-color: var(--primary-dark); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15); transform: translateY(-1px); }
-.ask-button:disabled { background-color: #cccccc; cursor: not-allowed; transform: none; box-shadow: none; }
-
-/* --- Map --- */
-.map-container-wrapper { padding: 1rem; }
-#map.map-view { height: 450px; width: 100%; border-radius: var(--border-radius); border: var(--card-border); box-shadow: 0 1px 5px rgba(0,0,0,0.1); z-index: 1; background-color: #e8f0e8; min-height: 300px; } /* Ensure min height */
-.map-loading { display: flex; justify-content: center; align-items: center; height: 100%; color: var(--text-light); font-style: italic; }
-.map-controls { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.8rem; margin-bottom: 1rem; }
-.map-layer-selector { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-.layer-button { background-color: #e9ecef; border: 1px solid #ced4da; color: var(--text-color); padding: 0.4rem 0.9rem; border-radius: var(--border-radius); cursor: pointer; font-size: 0.85rem; transition: var(--transition); }
-.layer-button:hover { background-color: #dee2e6; }
-.layer-button.active { background-color: var(--primary-light); color: white; border-color: var(--primary-color); }
-.map-button { border: none; border-radius: var(--border-radius); cursor: pointer; font-size: 0.9rem; transition: var(--transition); padding: 0.5rem 1rem; }
-.fullscreen-button { background-color: #6c757d; color: white; }
-.fullscreen-button:hover { background-color: #5a6268; }
-.map-legend { display: flex; gap: 1rem; margin-top: 1rem; justify-content: flex-start; flex-wrap: wrap; padding-left: 0.5rem; }
-.legend-item { display: flex; align-items: center; gap: 0.5rem; }
-.boundary-indicator { display: inline-block; width: 18px; height: 10px; border: 2px solid #ff7800; background-color: rgba(255, 120, 0, 0.1); }
-.location-marker-icon { font-size: 1.1rem; }
-.edit-indicator { font-size: 1.1rem; color: #555; }
-.legend-item p { margin: 0; font-size: 0.85rem; color: var(--text-light); }
-
-/* --- Response & ML --- */
-.ml-suggestion { background-color: rgba(240, 192, 90, 0.1); border: 1px dashed rgba(240, 192, 90, 0.3); padding: 1rem; }
-.ml-suggestion:hover { background-color: rgba(240, 192, 90, 0.15); }
-.ml-suggestion .detail-icon { color: var(--accent-color); }
-.ml-suggestion h4 { color: #b8810e; font-size: 0.95rem; }
-.ml-suggestion p { font-size: 0.9rem; }
-
-.response-card {}
-.response-content { padding: 1rem 1.2rem; border-radius: var(--border-radius); background-color: #ffffff; border: 1px solid #eee; min-height: 150px; max-height: 500px; overflow-y: auto; box-shadow: inset 0 1px 3px rgba(0,0,0,0.04); }
-.response-content pre.recommendations { white-space: pre-wrap; word-wrap: break-word; line-height: 1.65; font-family: inherit; font-size: 0.95rem; color: var(--text-color); margin: 0; }
-
-/* --- Footer --- */
-.app-footer { background-color: var(--primary-dark); color: rgba(255, 255, 255, 0.7); text-align: center; padding: 0.8rem; margin-top: auto; font-size: 0.85rem; }
-
-/* --- Fullscreen --- */
-.agri-app.map-fullscreen-active .app-header,
-.agri-app.map-fullscreen-active .left-panel,
-.agri-app.map-fullscreen-active .ml-suggestion,
-.agri-app.map-fullscreen-active .response-card,
-.agri-app.map-fullscreen-active .app-footer { display: none; }
-.agri-app.map-fullscreen-active .main-content { padding: 0; gap: 0; }
-.agri-app.map-fullscreen-active .right-panel.fullscreen { flex: 1 1 100%; height: 100vh; min-width: 100%; gap: 0; }
-.agri-app.map-fullscreen-active .map-container-wrapper.fullscreen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 2000; padding: 0; background-color: var(--card-bg); border-radius: 0; box-shadow: none; display: flex; flex-direction: column; border: none; box-sizing: border-box; }
-.agri-app.map-fullscreen-active .map-container-wrapper.fullscreen .map-controls { position: absolute; top: 10px; left: 10px; right: 10px; z-index: 2010; background-color: rgba(255, 255, 255, 0.9); padding: 0.6rem; border-radius: var(--border-radius); box-shadow: 0 2px 6px rgba(0,0,0,0.2); width: auto; max-width: calc(100% - 20px); }
-.agri-app.map-fullscreen-active .map-container-wrapper.fullscreen #map.map-view { flex-grow: 1; height: 100%; width: 100%; border-radius: 0; border: none; } /* Let map fill container */
-.agri-app.map-fullscreen-active .map-container-wrapper.fullscreen .map-legend { position: absolute; bottom: 10px; left: 10px; z-index: 2010; background-color: rgba(255, 255, 255, 0.9); padding: 0.6rem; border-radius: var(--border-radius); box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
-
-/* --- Leaflet Draw Customization --- */
-.leaflet-draw-toolbar a { background-color: rgba(255, 255, 255, 0.9); border-radius: 4px; border: 1px solid #bbb; }
-.leaflet-draw-toolbar a:hover { background-color: #f4f4f4; }
-.leaflet-draw-actions a:hover,
-.leaflet-draw-edit-edit.leaflet-enabled,
-.leaflet-draw-edit-remove.leaflet-enabled { background-color: #f0c05a !important; border: 1px solid #e6b54f; } /* Use accent color for active edit */
-.leaflet-draw-actions li a { background-color: var(--primary-color); color: white !important; border-radius: 4px; padding: 5px 10px !important; margin: 2px; text-decoration: none !important; display: inline-block; font-size: 12px; line-height: 1.5; border: none; }
-.leaflet-draw-actions li:last-child a { background-color: #a0a0a0; color: #333 !important; }
-.leaflet-draw-actions li a:hover { opacity: 0.9; background-color: var(--primary-dark); }
-.leaflet-draw-actions li:last-child a:hover { background-color: #888888; }
-
-/* --- Responsive --- */
-@media (max-width: 1200px) { .right-panel { flex: 1.5 1 400px; } } /* Adjust flex ratio */
-@media (max-width: 992px) { /* Tablet */
-  .main-content { flex-direction: column; }
-  .left-panel, .right-panel { width: 100%; min-width: unset; max-width: unset; flex: unset; }
-  #map.map-view { height: 400px; }
+.app-header.minimal {
+  padding: 0.5rem 1rem;
 }
-@media (max-width: 768px) { /* Mobile */
-  .card { padding: 1.2rem; }
-  .card h3 { font-size: 1.1rem; }
-  .main-content { padding: 1rem; gap: 1rem; }
-  #map.map-view { height: 350px; }
-}
-@media (max-width: 480px) { /* Small Mobile */
-  .card { padding: 0.8rem; }
-  .detail-item p, .goal-list li, .legend-item p { font-size: 0.85rem; }
-  .ask-button { padding: 0.7rem 1.5rem; font-size: 0.95rem; }
-  #map.map-view { height: 300px; } /* Adjust map height further */
-}
-/* Add styles for explore-track-card, progress-track-card if needed */
-/* --- Custom Scrollbar --- */
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
-::-webkit-scrollbar-thumb { background: #ccc; border-radius: 10px; }
-::-webkit-scrollbar-thumb:hover { background: #aaa; }
 
+.logo-section h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.menu-toggle {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+}
+
+.nav-menu-container {
+  position: relative;
+}
+
+.nav-menu {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  background-color: white;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  border-radius: 4px;
+  z-index: 1000;
+  min-width: 200px;
+}
+
+.nav-menu ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.nav-menu li {
+  padding: 0;
+}
+
+.nav-menu button {
+  width: 100%;
+  text-align: left;
+  padding: 0.75rem 1rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #333;
+}
+
+.nav-menu button:hover {
+  background-color: #f0f8f0;
+}
+
+/* === Card Styling === */
+.card {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  padding: 1rem;
+  transition: box-shadow 0.3s ease;
+}
+
+.card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.card h3 {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #2a6b34;
+  border-bottom: 1px solid #e0e7e0;
+  padding-bottom: 0.5rem;
+}
+
+/* === Track-specific Styling === */
+.explore-track .info-card {
+  border-left: 4px solid #3d7fd9;
+}
+
+.progress-track .info-card {
+  border-left: 4px solid #d9863d;
+}
+
+.explore-track-card h3 {
+  color: #3d7fd9;
+}
+
+.progress-track-card h3 {
+  color: #d9863d;
+}
+
+.track-indicator p {
+  font-weight: 600;
+}
+
+.explore-track .track-indicator p {
+  color: #3d7fd9;
+}
+
+.progress-track .track-indicator p {
+  color: #d9863d;
+}
+
+/* === Farm Info & Details === */
+.farm-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.detail-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.detail-icon {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.detail-item div {
+  flex: 1;
+}
+
+.detail-item h4 {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #666;
+}
+
+.detail-item p {
+  margin: 0.25rem 0 0;
+  font-size: 0.95rem;
+}
+
+.ml-suggestion {
+  background-color: #f5f9ff;
+}
+
+.ml-suggestion p {
+  font-weight: 600;
+  color: #3d7fd9;
+}
+
+/* Water Need Indicators */
+.water-need p {
+  font-weight: 600;
+}
+
+.water-need-high {
+  color: #e74c3c;
+}
+
+.water-need-medium {
+  color: #f39c12;
+}
+
+.water-need-low {
+  color: #27ae60;
+}
+
+/* Goals List */
+.goal-list {
+  margin: 0.25rem 0;
+  padding-left: 1.25rem;
+  list-style-type: none;
+}
+
+.goal-list li {
+  margin-bottom: 0.25rem;
+  position: relative;
+}
+
+.goal-list.nested {
+  padding-left: 0;
+}
+
+.goal-list.nested li {
+  font-size: 0.9rem;
+  margin-bottom: 0.15rem;
+}
+
+/* === Input Form Styling === */
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.6rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  transition: border-color 0.2s;
+}
+
+.form-input:focus {
+  border-color: #2a6b34;
+  outline: none;
+}
+
+.form-group small {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.ask-button {
+  display: block;
+  width: 100%;
+  padding: 0.75rem;
+  background-color: #2a6b34;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.ask-button:hover {
+  background-color: #1f5227;
+}
+
+.ask-button:disabled {
+  background-color: #b5c7b5;
+  cursor: not-allowed;
+}
+
+/* === Map Container & Controls === */
+.map-container-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 350px;
+  position: relative;
+}
+
+.map-container-wrapper.fullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2000;
+  border-radius: 0;
+  padding: 0;
+}
+
+.map-view {
+  flex: 1;
+  width: 100%;
+  border-radius: 4px;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.map-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.map-layer-selector {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.layer-button, .map-button {
+  background-color: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.layer-button.active {
+  background-color: #2a6b34;
+  color: white;
+  border-color: #2a6b34;
+}
+
+.layer-button:hover:not(.active), .map-button:hover {
+  background-color: #e0e0e0;
+}
+
+.fullscreen-button {
+  background-color: #f0f8f0;
+  border-color: #2a6b34;
+  color: #2a6b34;
+}
+
+.map-legend {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.legend-item p {
+  margin: 0;
+}
+
+.boundary-indicator {
+  display: inline-block;
+  width: 16px;
+  height: 4px;
+  background-color: #ff7800;
+  border-radius: 2px;
+}
+
+.location-marker-icon {
+  font-size: 1rem;
+}
+
+.map-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  font-style: italic;
+  color: #666;
+}
+
+/* === Response Area === */
+.response-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 200px;
+}
+
+.response-content {
+  flex: 1;
+  overflow-y: auto;
+  background-color: #fafcfa;
+  border-radius: 4px;
+  padding: 0.75rem;
+}
+
+.recommendations {
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: 0.95rem;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* === Footer === */
+.app-footer {
+  background-color: #f0f4f0;
+  padding: 0.5rem 1rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: #666;
+  border-top: 1px solid #e0e7e0;
+}
+
+/* === Loading & Error States === */
+.loading-fullpage, .error-fullpage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background-color: #f7f9f4;
+  text-align: center;
+  padding: 2rem;
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 5px solid rgba(42, 107, 52, 0.2);
+  border-radius: 50%;
+  border-top-color: #2a6b34;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.error-fullpage h2 {
+  color: #c0392b;
+  margin-bottom: 1rem;
+}
+
+.retry-button {
+  margin-top: 1rem;
+  padding: 0.75rem 1.5rem;
+  background-color: #2a6b34;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* === Fullscreen Mode Overrides === */
+.map-fullscreen-active .right-panel.fullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1500;
+  padding: 0;
+  gap: 0;
+}
+
+/* === Leaflet Map Overrides === */
+:global(.leaflet-container) {
+  height: 100%;
+  width: 100%;
+}
+
+:global(.leaflet-draw-toolbar a) {
+  background-image: url('https://unpkg.com/leaflet-draw/dist/images/spritesheet.png');
+}
+
+:global(.leaflet-draw-toolbar a.leaflet-draw-draw-polygon) {
+  background-position: -31px -2px;
+}
+
+:global(.leaflet-draw-actions a) {
+  background-color: #fff;
+  color: #333;
+}
+
+/* === Media Queries for Responsive Layout === */
+@media (max-width: 960px) {
+  .main-content {
+    flex-direction: column;
+  }
+  
+  .left-panel {
+    flex: 0 0 auto;
+    width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  .app-header {
+    padding: 0.5rem;
+  }
+  
+  .logo-section h1 {
+    font-size: 1.2rem;
+  }
+  
+  .map-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .main-content {
+    padding: 0.25rem;
+    gap: 0.5rem;
+  }
+}
